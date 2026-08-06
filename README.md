@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DuHoc24 — Website mẫu "Cổng Tiếp Nhận Hồ Sơ Du Học"
 
-## Getting Started
+Repo mẫu dùng cho khoá lập trình 6 tuần. Bản này (Tuần 1) chỉ dựng UI —
+toàn bộ dữ liệu là **mock data viết cứng** trong [`lib/mock-data.ts`](lib/mock-data.ts),
+chưa nối API hay database thật.
 
-First, run the development server:
+## Bắt đầu
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mở [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Các route
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Mô tả |
+|---|---|
+| `/` | Landing page: hero, form báo giá, chatbot QnA (UI tĩnh), 3 điểm nổi bật, footer |
+| `/portal` | Cổng hồ sơ học viên: upload giấy tờ, thông tin trích xuất, đối chiếu điểm chuẩn |
+| `/admin` | Chuyển hướng đến `/admin/requests` |
+| `/admin/requests` | Danh sách yêu cầu báo giá |
+| `/admin/schools` | Danh sách trường tham chiếu (điểm chuẩn) |
+| `/admin/profiles` | Hồ sơ học viên và trạng thái giấy tờ |
+| `/admin/conversations` | Lịch sử hội thoại chatbot |
 
-## Learn More
+Trang `/login` chưa được dựng ở bước này — học viên sẽ tự dựng ở Tuần 6.
 
-To learn more about Next.js, take a look at the following resources:
+## Công nghệ
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS v4
+- [shadcn/ui](https://ui.shadcn.com) (style `base-nova`, nền tảng [Base UI](https://base-ui.com))
+- Khối giao diện nền: [`@tailark-oss/dusk-landing-2`](https://tailark.com), đã chuyển sang light theme và tuỳ biến theo nội dung dịch vụ du học
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Biến môi trường
 
-## Deploy on Vercel
+Chưa cần thiết để chạy `npm run dev` ở bản này. Xem [`.env.example`](.env.example)
+cho danh sách biến sẽ dùng khi nối Supabase (Tuần 3) và đăng nhập magic link (Tuần 6).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Repo có cấu trúc chuẩn Next.js App Router, deploy trực tiếp lên [Vercel](https://vercel.com/new)
+mà không cần cấu hình thêm.
