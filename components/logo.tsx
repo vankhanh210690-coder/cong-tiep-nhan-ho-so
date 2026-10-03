@@ -1,39 +1,35 @@
 import { cn } from "@/lib/utils";
 
-export const LogoMark = ({ className, uniColor }: { className?: string; uniColor?: boolean }) => {
+export const LogoMark = ({ className }: { className?: string }) => {
   return (
     <svg
-      className={cn("size-6", className)}
-      viewBox="0 0 180 220"
+      className={cn("size-7", className)}
+      viewBox="0 0 48 48"
       fill="none"
-      xmlns="http://www.w3.org/2000/svg">
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Outer ring hairline */}
+      <circle cx="24" cy="24" r="23" stroke="currentColor" strokeOpacity="0.18" />
+      {/* Inner compass star — editorial compass motif */}
       <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M80 100H28C12.536 100 0 87.464 0 72V28C0 12.536 12.536 0 28 0H72C87.464 0 100 12.536 100 28V80H160C171.046 80 180 88.9543 180 100V167.639C180 175.215 175.72 182.14 168.944 185.528L103.416 218.292C101.17 219.415 98.6923 220 96.1803 220C87.2442 220 80 212.756 80 203.82V100ZM28 20C23.5817 20 20 23.5817 20 28V72C20 76.4183 23.5817 80 28 80H80V28C80 23.5817 76.4183 20 72 20H28ZM100 100H152C156.418 100 160 103.582 160 108V165.092C160 168.103 158.309 170.859 155.625 172.224L111.625 194.591C106.303 197.296 100 193.429 100 187.459V100Z"
-        fill={uniColor ? "currentColor" : "url(#paint_logo)"}
+        d="M24 7 L26.4 21.6 L41 24 L26.4 26.4 L24 41 L21.6 26.4 L7 24 L21.6 21.6 Z"
+        fill="currentColor"
       />
-      <defs>
-        <linearGradient
-          id="paint_logo"
-          x1="90"
-          y1="0"
-          x2="90"
-          y2="220"
-          gradientUnits="userSpaceOnUse">
-          <stop stopColor="#9B99FE" />
-          <stop offset="1" stopColor="#2BC8B7" />
-        </linearGradient>
-      </defs>
+      <circle cx="24" cy="24" r="2.4" fill="var(--background)" />
     </svg>
   );
 };
 
-export const Logo = ({ className, uniColor }: { className?: string; uniColor?: boolean }) => {
+export const Logo = ({ className }: { className?: string; uniColor?: boolean }) => {
   return (
-    <span className={cn("flex items-center gap-2 text-foreground", className)}>
-      <LogoMark uniColor={uniColor} />
-      <span className="text-base font-semibold tracking-tight">DuHoc24</span>
+    <span className={cn("flex items-center gap-2.5 text-foreground", className)}>
+      <LogoMark />
+      <span className="flex items-baseline gap-0.5">
+        <span className="font-serif text-xl font-medium tracking-tight">DuHoc</span>
+        <span className="font-mono text-[0.7rem] font-light text-[color:var(--umber)]">
+          /24
+        </span>
+      </span>
     </span>
   );
 };
