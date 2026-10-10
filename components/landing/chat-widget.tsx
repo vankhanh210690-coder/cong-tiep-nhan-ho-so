@@ -16,19 +16,38 @@ const quickQuestions = [
   "Chi phí dịch vụ là bao nhiêu?",
 ];
 
-const initialMessages: Message[] = [
-  {
-    from: "bot",
-    text: "Chào bạn! Mình là trợ lý ảo của DuHoc24, bạn cần hỗ trợ gì về hồ sơ du học?",
-  },
-];
+const GREETING: Message = {
+  from: "bot",
+  text: "Chào bạn! Mình là trợ lý ảo của DuHoc24, bạn cần hỗ trợ gì về hồ sơ du học?",
+};
 
 export function ChatWidget() {
   const [open, setOpen] = React.useState(false);
-  const [messages, setMessages] = React.useState<Message[]>(initialMessages);
+  const [messages, setMessages] = React.useState<Message[]>([GREETING]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [historyLoaded, setHistoryLoaded] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // Fetch history lần đầu khi widget mount — không truyền history từ client nữa,
+  // server tự lấy từ DB qua cookie du_sid (HttpOnly, không đọc được từ JS).
+  React.useEffect(() => {
+    if (historyLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/chat/history", { credentials: "include" });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.messages) && data.messages.length > 0) {
+          // Greeting + lịch sử cũ (last 10 từ server)
+          setMessages([GREETING, ...data.messages]);
+        }
+      } catch {
+        // Thất bại im lặng — giữ nguyên greeting mặc định
+      } finally {
+        setHistoryLoaded(true);
+      }
+    })();
+  }, [historyLoaded]);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -42,8 +61,7 @@ export function ChatWidget() {
     if (!trimmed || loading) return;
 
     const userMsg: Message = { from: "user", text: trimmed };
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
@@ -51,15 +69,14 @@ export function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          history: messages,
-        }),
+        credentials: "include",
+        body: JSON.stringify({ message: trimmed }),
       });
       const data = await res.json();
       const reply = res.ok
         ? data.reply
-        : "Xin lỗi, hệ thống đang bận. Bạn thử lại sau ít phút nhé.";
+        : data.error ??
+          "Xin lỗi, hệ thống đang bận. Bạn thử lại sau ít phút nhé.";
       setMessages((prev) => [...prev, { from: "bot", text: reply }]);
     } catch {
       setMessages((prev) => [

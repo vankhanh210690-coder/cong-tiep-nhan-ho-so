@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import crypto from "node:crypto";
 import { countries, servicePackages } from "@/lib/mock-data";
+import { getAdminClient, type ChatRole } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 
 const MODEL = "gemini-3.5-flash-lite";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+
+const COOKIE_NAME = "du_sid";
+const COOKIE_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 ngày
+const HISTORY_LIMIT = 10;
+const MAX_MESSAGE_LEN = 2000;
+
+// Rate limit: 20 message/phút/session (in-memory, reset khi serverless cold start)
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = 20;
+const rateMap = new Map<string, { count: number; resetAt: number }>();
 
 const DEGREE_LEVELS = ["THPT", "Đại học", "Thạc sĩ"];
 
@@ -59,102 +72,207 @@ A: Để lại câu hỏi trong khung chat này, hoặc để lại email/SĐT t
 
 ═══════ NGUYÊN TẮC TRẢ LỜI ═══════
 
-**[1. Grounding — bắt buộc]**
-- Chỉ dùng thông tin từ phần "DỊCH VỤ" và "Q&A GỐC" ở trên.
-- **TUYỆT ĐỐI KHÔNG BỊA**: giá cụ thể từng gói, tên trường cụ thể, điểm chuẩn, thời gian xét duyệt riêng từng trường, chính sách hoàn tiền, địa chỉ văn phòng, SĐT hotline.
-- Nếu khách hỏi về nước/bậc học KHÔNG có trong danh sách hỗ trợ ở trên → nói thẳng là chưa hỗ trợ.
+**[1. Grounding]** Chỉ dùng thông tin ở trên. KHÔNG BỊA giá cụ thể, tên trường cụ thể, điểm chuẩn, thời gian xét duyệt riêng từng trường, chính sách hoàn tiền, địa chỉ, SĐT hotline. Nước/bậc học ngoài danh sách → nói thẳng chưa hỗ trợ.
 
-**[2. Linh hoạt — khuyến khích]**
-- Được phép **suy luận hợp lý** từ Q&A gốc. Ví dụ: hỏi "Toàn diện có gì hơn Cơ bản?" → so sánh được dựa trên info có sẵn.
-- Hiểu paraphrase, viết tắt, không dấu, mix Việt-Anh — trả lời bằng tiếng Việt tự nhiên.
-- Câu tiếng Anh → vẫn trả lời tiếng Việt theo Q&A tương ứng.
+**[2. Linh hoạt]** Được phép suy luận hợp lý từ Q&A gốc (vd. so sánh 2 gói). Hiểu paraphrase, viết tắt, không dấu, mix Việt-Anh — trả lời tiếng Việt tự nhiên.
 
-**[3. Clarify khi mơ hồ — bắt buộc]**
-- Nếu câu hỏi có đại từ mơ hồ ("cái này", "nó", "cái đó"...) hoặc có thể hiểu theo nhiều hướng → **HỎI LẠI 1 câu ngắn để làm rõ**, KHÔNG đoán mò và trả lời sai hướng.
-- Ví dụ: "cái này có mất phí không?" → "Bạn hỏi về phí xem báo giá, hay phí gói dịch vụ ạ?"
+**[3. Clarify khi mơ hồ]** Câu có đại từ mơ hồ ("cái này", "nó"...) → HỎI LẠI 1 câu ngắn, KHÔNG đoán mò.
 
-**[4. Chủ động hỏi để qualify + tư vấn — cốt lõi]**
-- Sau mỗi câu trả lời, **CHỦ ĐỘNG đặt 1 câu hỏi tiếp theo** để hiểu khách hơn và tạo cơ hội tư vấn. Ví dụ:
-  * Sau khi nói về gói → "Bạn đang hướng tới bậc học nào — THPT, Đại học hay Thạc sĩ ạ?"
-  * Sau khi nói về giấy tờ → "Bạn đã có IELTS chưa? Nếu chưa thì cũng không sao, mình nói rõ thêm."
-  * Sau khi nói về chi phí → "Bạn đang quan tâm nước nào vậy ạ? Mỗi nước có mức báo giá khác nhau."
-- Nếu khách là statement/intent (vd "em học lớp 12", "em muốn du học Mỹ") → coi là **tín hiệu quan tâm**, chủ động hỏi gợi ý thay vì fallback: "Chào bạn, bên mình nhận hồ sơ cả bậc THPT. Bạn cần biết trước về gói dịch vụ, giấy tờ cần chuẩn bị, hay có trường cụ thể nào đã nhắm chưa ạ?"
+**[4. Chủ động qualify]** Sau mỗi câu trả lời, HỎI 1 câu follow-up để hiểu khách hơn (bậc học, quốc gia, đã có IELTS chưa...). Statement/intent gián tiếp → chủ động gợi ý thay vì fallback.
 
-**[5. Nudge nhẹ nhàng — khi phù hợp]**
-- Khi khách đã có nhu cầu rõ (hỏi 2-3 câu về dịch vụ) → **nhẹ nhàng gợi ý bước tiếp**: "Bạn có thể điền form báo giá ở trang chủ (phía trên khung chat), chỉ 30 giây là có mức giá cụ thể cho trường hợp của bạn."
-- Khi khách lo lắng (hỏi về bảo mật, lừa đảo) → trấn an + mời để lại SĐT để tư vấn 1-1.
-- KHÔNG hối thúc. KHÔNG hỏi nhiều hơn 1 câu/lượt. KHÔNG spam link.
+**[5. Nudge nhẹ]** Khách có nhu cầu rõ → gợi ý điền form báo giá ở trang chủ. KHÔNG hối thúc, KHÔNG spam.
 
-**[6. Fallback — chỉ dùng khi thật sự ngoài scope]**
-- Chỉ dùng fallback mẫu khi câu hỏi **không liên quan gì** đến dịch vụ du học (vd. "em có người yêu chưa?", "trời hôm nay thế nào?").
-- Fallback mẫu: "Mình chưa có thông tin về phần này. Bạn có thể để lại email/SĐT trong form báo giá ở trang chủ, đội ngũ tư vấn sẽ liên hệ lại nhé."
-- Với câu hỏi có LIÊN QUAN nhưng ngoài info có sẵn (vd. "có cho đổi gói giữa chừng không?") → nói thẳng chưa có thông tin + đề nghị để lại SĐT để team trả lời chi tiết, KHÔNG dùng fallback mẫu cứng.
+**[6. Fallback]** Chỉ dùng mẫu khi câu không liên quan gì dịch vụ du học. Mẫu: "Mình chưa có thông tin về phần này. Bạn có thể để lại email/SĐT trong form báo giá ở trang chủ, đội ngũ tư vấn sẽ liên hệ lại nhé."
 
-**[7. Phong cách]**
-- Xưng "mình" – "bạn". Thân thiện, chuyên nghiệp, không sến. Không dùng emoji.
-- Tối đa 3 câu (gồm cả câu hỏi follow-up). Súc tích.
-- Không dùng markdown, không bullet list, không bold.`;
+**[7. Phong cách]** Xưng "mình" – "bạn". Thân thiện, chuyên nghiệp. Không emoji, không markdown, không bullet. Tối đa 3 câu.`;
 }
 
-type ChatTurn = { from: "user" | "bot"; text: string };
+function newSessionId(): string {
+  // UUID v4 — đủ unique cho session
+  return crypto.randomUUID();
+}
+
+function hashIp(ip: string | null): string | null {
+  if (!ip) return null;
+  const salt = process.env.SUPABASE_SECRET_KEY ?? "";
+  return crypto.createHash("sha256").update(ip + salt).digest("hex").slice(0, 32);
+}
+
+function checkRateLimit(sessionId: string): { ok: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const entry = rateMap.get(sessionId);
+  if (!entry || now > entry.resetAt) {
+    rateMap.set(sessionId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return { ok: true };
+  }
+  if (entry.count >= RATE_MAX) {
+    return { ok: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+  entry.count++;
+  return { ok: true };
+}
 
 export async function POST(req: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "Chưa cấu hình GEMINI_API_KEY trong .env" },
+      { error: "Chưa cấu hình GEMINI_API_KEY" },
       { status: 500 },
     );
   }
 
-  let body: { message?: string; history?: ChatTurn[] };
+  // 1. Parse body
+  let body: { message?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Body không hợp lệ" }, { status: 400 });
   }
-
   const message = body.message?.trim();
   if (!message) {
     return NextResponse.json({ error: "Thiếu message" }, { status: 400 });
   }
-
-  const history = (body.history ?? []).slice(-10);
-  const contents = [
-    ...history.map((t) => ({
-      role: t.from === "user" ? "user" : "model",
-      parts: [{ text: t.text }],
-    })),
-    { role: "user", parts: [{ text: message }] },
-  ];
-
-  const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
-      contents,
-      generationConfig: {
-        temperature: 0.5,
-        topP: 0.9,
-        maxOutputTokens: 400,
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("Gemini API error:", res.status, errText);
+  if (message.length > MAX_MESSAGE_LEN) {
     return NextResponse.json(
-      { error: `Gemini trả lỗi ${res.status}` },
+      { error: `Message quá dài (max ${MAX_MESSAGE_LEN} ký tự)` },
+      { status: 400 },
+    );
+  }
+
+  // 2. Session cookie
+  const cookieStore = await cookies();
+  let sessionId = cookieStore.get(COOKIE_NAME)?.value;
+  const isNewSession = !sessionId;
+  if (!sessionId) {
+    sessionId = newSessionId();
+  }
+
+  // 3. Rate limit
+  const rate = checkRateLimit(sessionId);
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: `Bạn gửi quá nhanh, thử lại sau ${rate.retryAfter}s` },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+    );
+  }
+
+  // 4. Supabase: get or create conversation
+  const supabase = getAdminClient();
+  let conversationId: string;
+
+  const { data: existing } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  if (existing) {
+    conversationId = existing.id;
+  } else {
+    const userAgent = req.headers.get("user-agent")?.slice(0, 400) ?? null;
+    const fwd = req.headers.get("x-forwarded-for");
+    const ip = fwd?.split(",")[0]?.trim() ?? null;
+    const { data: created, error: createErr } = await supabase
+      .from("conversations")
+      .insert({
+        session_id: sessionId,
+        user_agent: userAgent,
+        ip_hash: hashIp(ip),
+      })
+      .select("id")
+      .single();
+    if (createErr || !created) {
+      console.error("Create conversation failed:", createErr);
+      return NextResponse.json({ error: "DB lỗi" }, { status: 500 });
+    }
+    conversationId = created.id;
+  }
+
+  // 5. INSERT user message
+  const { error: userMsgErr } = await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    role: "user" as ChatRole,
+    text: message,
+  });
+  if (userMsgErr) {
+    console.error("Insert user message failed:", userMsgErr);
+    return NextResponse.json({ error: "DB lỗi" }, { status: 500 });
+  }
+
+  // 6. Fetch history (last N) để làm context cho Gemini
+  const { data: history } = await supabase
+    .from("messages")
+    .select("role, text")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(HISTORY_LIMIT);
+
+  const contents = (history ?? [])
+    .reverse()
+    .map((m) => ({
+      role: m.role === "user" ? "user" : "model",
+      parts: [{ text: m.text }],
+    }));
+
+  // 7. Call Gemini
+  const geminiController = AbortSignal.timeout(20_000);
+  let reply: string;
+  try {
+    const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
+        contents,
+        generationConfig: {
+          temperature: 0.5,
+          topP: 0.9,
+          maxOutputTokens: 400,
+        },
+      }),
+      signal: geminiController,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Gemini API error:", res.status, errText.slice(0, 200));
+      return NextResponse.json(
+        { error: "Trợ lý tạm thời bận, bạn thử lại nhé" },
+        { status: 502 },
+      );
+    }
+
+    const data = await res.json();
+    reply =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ??
+      "Mình chưa trả lời được câu này, bạn thử lại nhé.";
+  } catch (err) {
+    console.error("Gemini fetch failed:", err);
+    return NextResponse.json(
+      { error: "Trợ lý tạm thời bận, bạn thử lại nhé" },
       { status: 502 },
     );
   }
 
-  const data = await res.json();
-  const reply =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ??
-    "Mình chưa trả lời được câu này, bạn thử lại nhé.";
+  // 8. INSERT bot reply
+  await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    role: "bot" as ChatRole,
+    text: reply,
+  });
 
-  return NextResponse.json({ reply });
+  // 9. Return + set cookie nếu session mới
+  const response = NextResponse.json({ reply });
+  if (isNewSession) {
+    response.cookies.set({
+      name: COOKIE_NAME,
+      value: sessionId,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: COOKIE_TTL_SECONDS,
+      path: "/",
+    });
+  }
+  return response;
 }
