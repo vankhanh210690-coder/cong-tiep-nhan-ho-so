@@ -10,6 +10,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const username = process.env.ADMIN_USERNAME ?? "admin";
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
     // Nếu chưa cấu hình → cho qua (để không chặn dev)
@@ -21,7 +22,7 @@ export function middleware(req: NextRequest) {
     try {
       const decoded = atob(auth.slice(6));
       const [user, pass] = decoded.split(":");
-      if (user === "admin" && pass === password) {
+      if (user === username && pass === password) {
         return NextResponse.next();
       }
     } catch {
