@@ -116,10 +116,10 @@ export function Hero() {
             <div className="relative rounded-[2rem] bg-foreground/5 p-2 ring-1 ring-foreground/8">
               <div className="relative overflow-hidden rounded-[calc(2rem-0.375rem)]">
                 <Image
-                  src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1600&auto=format&fit=crop"
-                  alt="Sinh viên tung mũ tốt nghiệp sau khi hoàn tất chương trình du học"
-                  width={1600}
-                  height={2000}
+                  src="/images/hero-students.jpg"
+                  alt="Hai sinh viên trong khuôn viên đại học, sẵn sàng cho hành trình du học"
+                  width={1440}
+                  height={1800}
                   priority
                   className="aspect-[4/5] w-full object-cover"
                 />

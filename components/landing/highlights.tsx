@@ -6,8 +6,8 @@ const highlights = [
     title: "Báo giá tức thì",
     description:
       "Chọn quốc gia, bậc học và gói dịch vụ, báo giá sẽ gửi trực tiếp vào email đã đăng ký trong vài giây.",
-    image:
-      "https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=1200&auto=format&fit=crop",
+    image: "/images/highlight-pricing.jpg",
+    alt: "Học viên cùng tư vấn viên xem báo giá trên laptop",
     span: "lg:col-span-7",
     aspect: "aspect-[4/3]",
   },
@@ -16,8 +16,8 @@ const highlights = [
     title: "Đối chiếu điểm chuẩn minh bạch",
     description:
       "Điểm học tập và IELTS của bạn được so trực tiếp với điểm chuẩn từng trường — kết quả đạt hay không hiển thị rõ.",
-    image:
-      "https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?q=80&w=1200&auto=format&fit=crop",
+    image: "/images/highlight-match.jpg",
+    alt: "Tư vấn viên rà soát giấy tờ cùng học viên",
     span: "lg:col-span-5",
     aspect: "aspect-[4/5]",
   },
@@ -26,8 +26,8 @@ const highlights = [
     title: "Phản hồi trong 24 giờ",
     description:
       "Gửi yêu cầu xong, tư vấn viên sẽ liên hệ lại trong vòng 24 giờ. Không chờ đợi mơ hồ, không hứa suông.",
-    image:
-      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=1200&auto=format&fit=crop",
+    image: "/images/highlight-support.jpg",
+    alt: "Tư vấn viên DuHoc24 đeo tai nghe tư vấn trực tuyến",
     span: "lg:col-span-12",
     aspect: "aspect-[21/9]",
   },
@@ -70,7 +70,7 @@ export function Highlights() {
                   <div className={`relative ${h.aspect} w-full overflow-hidden`}>
                     <Image
                       src={h.image}
-                      alt={h.title}
+                      alt={h.alt}
                       fill
                       sizes="(max-width: 1024px) 100vw, 50vw"
                       className="object-cover transition-transform duration-[1.5s] ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.03]"
