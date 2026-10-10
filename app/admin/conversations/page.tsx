@@ -27,7 +27,14 @@ interface ConversationWithLatest {
   lead_captured: boolean | null;
   quality_score: number | null;
   lead_name: string | null;
+  lead_quality: "good" | "ok" | "spam" | null;
 }
+
+const LEAD_QUALITY_PILL: Record<string, string> = {
+  good: "bg-[color:var(--sage)]/15 text-[color:var(--sage)]",
+  ok: "bg-amber-100 text-amber-700",
+  spam: "bg-red-100 text-red-700",
+};
 
 async function fetchConversations(): Promise<ConversationWithLatest[]> {
   const supabase = getAdminClient();
@@ -63,14 +70,17 @@ async function fetchConversations(): Promise<ConversationWithLatest[]> {
   // Fetch insights
   const { data: insights } = await supabase
     .from("conversation_insights")
-    .select("conversation_id, lead_captured, quality_score, lead_name")
+    .select("conversation_id, lead_captured, quality_score, lead_name, lead_quality")
     .in("conversation_id", ids);
 
-  const insightsByConv = new Map<
-    string,
-    { lead_captured: boolean | null; quality_score: number | null; lead_name: string | null }
-  >();
-  (insights ?? []).forEach((i) => insightsByConv.set(i.conversation_id, i));
+  type InsightLite = {
+    lead_captured: boolean | null;
+    quality_score: number | null;
+    lead_name: string | null;
+    lead_quality: "good" | "ok" | "spam" | null;
+  };
+  const insightsByConv = new Map<string, InsightLite>();
+  (insights ?? []).forEach((i) => insightsByConv.set(i.conversation_id, i as InsightLite));
 
   return convs.map((c) => {
     const ins = insightsByConv.get(c.id);
@@ -80,6 +90,7 @@ async function fetchConversations(): Promise<ConversationWithLatest[]> {
       lead_captured: ins?.lead_captured ?? null,
       quality_score: ins?.quality_score ?? null,
       lead_name: ins?.lead_name ?? null,
+      lead_quality: ins?.lead_quality ?? null,
     };
   });
 }
@@ -139,12 +150,22 @@ export default async function AdminConversationsPage() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  {conv.lead_captured === true ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--sage)]/15 px-2 py-0.5 text-[0.65rem] font-medium text-[color:var(--sage)]">
-                      ✓ {conv.lead_name ?? "Có lead"}
-                    </span>
-                  ) : conv.lead_captured === false ? (
-                    <span className="font-mono text-[0.65rem] text-foreground/40">Không</span>
+                  {conv.lead_quality ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span
+                        className={cn(
+                          "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[0.6rem] font-semibold uppercase tracking-wider",
+                          LEAD_QUALITY_PILL[conv.lead_quality],
+                        )}
+                      >
+                        {conv.lead_quality}
+                      </span>
+                      {conv.lead_name && (
+                        <span className="text-[0.65rem] text-foreground/60">
+                          {conv.lead_name}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="font-mono text-[0.65rem] text-foreground/30">—</span>
                   )}

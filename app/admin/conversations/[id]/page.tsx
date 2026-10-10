@@ -27,6 +27,10 @@ interface Insights {
   major: string | null;
   timeline: string | null;
   has_ielts: boolean | null;
+  availability: string | null;
+  wants_consultation: boolean | null;
+  note: string | null;
+  lead_quality: "good" | "ok" | "spam" | null;
   services_discussed: string[] | null;
   lead_captured: boolean;
   quality_score: number | null;
@@ -36,6 +40,21 @@ interface Insights {
   extracted_at: string;
   model_used: string | null;
 }
+
+const LEAD_QUALITY_STYLES: Record<string, { label: string; className: string }> = {
+  good: {
+    label: "GOOD · Follow ngay",
+    className: "bg-[color:var(--sage)]/15 text-[color:var(--sage)] ring-[color:var(--sage)]/30",
+  },
+  ok: {
+    label: "OK · Nurture",
+    className: "bg-amber-100 text-amber-700 ring-amber-300",
+  },
+  spam: {
+    label: "SPAM",
+    className: "bg-red-100 text-red-700 ring-red-300",
+  },
+};
 
 interface ConversationDetail {
   id: string;
@@ -232,11 +251,27 @@ export default async function ConversationDetailPage({
 
         {insights ? (
           <Card className="p-6">
-            {/* Lead captured badge + quality score */}
-            <div className="mb-6 flex flex-wrap items-center gap-4 border-b border-foreground/8 pb-5">
+            {/* Lead quality — badge lớn ưu tiên nhất */}
+            {insights.lead_quality && (
+              <div className="mb-5">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ring-1",
+                    LEAD_QUALITY_STYLES[insights.lead_quality]?.className ?? "",
+                  )}
+                >
+                  <span className="font-mono text-xs uppercase tracking-widest">
+                    {LEAD_QUALITY_STYLES[insights.lead_quality]?.label ?? insights.lead_quality}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {/* Phụ: lead captured + quality score + flow stage + wants consultation */}
+            <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-foreground/8 pb-5">
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[0.7rem] font-medium",
                   insights.lead_captured
                     ? "bg-[color:var(--sage)]/15 text-[color:var(--sage)]"
                     : "bg-foreground/8 text-foreground/60",
@@ -245,16 +280,26 @@ export default async function ConversationDetailPage({
                 <span
                   className={cn(
                     "size-1.5 rounded-full",
-                    insights.lead_captured
-                      ? "bg-[color:var(--sage)]"
-                      : "bg-foreground/40",
+                    insights.lead_captured ? "bg-[color:var(--sage)]" : "bg-foreground/40",
                   )}
                 />
-                {insights.lead_captured ? "Đã thu được lead" : "Chưa có lead"}
+                {insights.lead_captured ? "Có đủ contact" : "Thiếu contact"}
               </span>
+              {insights.wants_consultation !== null && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.7rem] font-medium",
+                    insights.wants_consultation
+                      ? "bg-[color:var(--umber)]/15 text-[color:var(--umber)]"
+                      : "bg-foreground/8 text-foreground/60",
+                  )}
+                >
+                  {insights.wants_consultation ? "✓ Muốn đặt lịch tư vấn" : "✗ Từ chối tư vấn"}
+                </span>
+              )}
               <QualityStars score={insights.quality_score} />
               {insights.flow_stage && (
-                <span className="rounded-full bg-foreground/8 px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider text-foreground/60">
+                <span className="rounded-full bg-foreground/8 px-2.5 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-foreground/60">
                   {FLOW_STAGE_LABELS[insights.flow_stage] ?? insights.flow_stage}
                 </span>
               )}
@@ -305,23 +350,23 @@ export default async function ConversationDetailPage({
                 </p>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex items-start gap-2">
-                    <dt className="w-20 text-foreground/60">Quốc gia</dt>
+                    <dt className="w-24 text-foreground/60">Quốc gia</dt>
                     <dd>{insights.country ?? <span className="text-foreground/40">—</span>}</dd>
                   </div>
                   <div className="flex items-start gap-2">
-                    <dt className="w-20 text-foreground/60">Bậc học</dt>
+                    <dt className="w-24 text-foreground/60">Bậc học</dt>
                     <dd>{insights.degree ?? <span className="text-foreground/40">—</span>}</dd>
                   </div>
                   <div className="flex items-start gap-2">
-                    <dt className="w-20 text-foreground/60">Ngành</dt>
+                    <dt className="w-24 text-foreground/60">Ngành</dt>
                     <dd>{insights.major ?? <span className="text-foreground/40">—</span>}</dd>
                   </div>
                   <div className="flex items-start gap-2">
-                    <dt className="w-20 text-foreground/60">Thời gian</dt>
+                    <dt className="w-24 text-foreground/60">Thời gian</dt>
                     <dd>{insights.timeline ?? <span className="text-foreground/40">—</span>}</dd>
                   </div>
                   <div className="flex items-start gap-2">
-                    <dt className="w-20 text-foreground/60">IELTS</dt>
+                    <dt className="w-24 text-foreground/60">IELTS</dt>
                     <dd>
                       {insights.has_ielts === true && "Đã có"}
                       {insights.has_ielts === false && "Chưa có"}
@@ -330,9 +375,25 @@ export default async function ConversationDetailPage({
                       )}
                     </dd>
                   </div>
+                  <div className="flex items-start gap-2">
+                    <dt className="w-24 text-foreground/60">Khung giờ rảnh</dt>
+                    <dd>{insights.availability ?? <span className="text-foreground/40">—</span>}</dd>
+                  </div>
                 </dl>
               </div>
             </div>
+
+            {/* Note khách để lại */}
+            {insights.note && (
+              <div className="mt-6 border-t border-foreground/8 pt-5">
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                  Ghi chú/câu hỏi khách để lại
+                </p>
+                <p className="mt-2 text-sm italic text-foreground/70">
+                  "{insights.note}"
+                </p>
+              </div>
+            )}
 
             {/* Services discussed */}
             {insights.services_discussed && insights.services_discussed.length > 0 && (

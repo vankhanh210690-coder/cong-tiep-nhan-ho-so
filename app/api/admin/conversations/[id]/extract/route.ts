@@ -3,7 +3,7 @@ import { getAdminClient } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 
-const MODEL = "gemini-3.5-flash-lite";
+const MODEL = "gemini-3.1-flash-lite";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 /**
@@ -15,14 +15,43 @@ const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODE
 const EXTRACT_SCHEMA = {
   type: "OBJECT",
   properties: {
+    // === Thông tin khách ===
     lead_name: { type: "STRING", nullable: true, description: "Họ tên khách (nếu đã cung cấp)" },
     lead_email: { type: "STRING", nullable: true, description: "Email khách (format hợp lệ)" },
     lead_phone: { type: "STRING", nullable: true, description: "SĐT khách (format VN, giữ nguyên định dạng khách gõ)" },
+
+    // === Nhu cầu du học ===
     country: { type: "STRING", nullable: true, description: "Quốc gia khách muốn du học" },
     degree: { type: "STRING", nullable: true, description: "Bậc học (THPT/Đại học/Thạc sĩ)" },
     major: { type: "STRING", nullable: true, description: "Ngành học khách quan tâm" },
     timeline: { type: "STRING", nullable: true, description: "Thời gian dự kiến đi (vd Fall 2027)" },
     has_ielts: { type: "BOOLEAN", nullable: true, description: "Khách có IELTS chưa (null nếu chưa nhắc)" },
+
+    // === Sales / consultation ===
+    availability: {
+      type: "STRING",
+      nullable: true,
+      description: "Khung giờ khách rảnh để tư vấn (vd 'tối thứ 7', 'sau 6h chiều'). Null nếu không nhắc.",
+    },
+    wants_consultation: {
+      type: "BOOLEAN",
+      nullable: true,
+      description: "Khách có đồng ý/muốn đặt lịch tư vấn 1-1 không. Null nếu chưa đến bước này.",
+    },
+    note: {
+      type: "STRING",
+      nullable: true,
+      description: "Ghi chú/câu hỏi tự do khách để lại ngoài flow chuẩn (vd mối lo ngại cụ thể, điều kiện riêng).",
+    },
+
+    // === Phân loại lead ===
+    lead_quality: {
+      type: "STRING",
+      enum: ["good", "ok", "spam"],
+      description: "Phân loại nhanh: 'good'=khách có nhu cầu rõ + để contact, follow ngay. 'ok'=có quan tâm nhưng chưa đủ info, cần nurture. 'spam'=bot/lạc đề/khách giả.",
+    },
+
+    // === Services + QA cũ ===
     services_discussed: {
       type: "ARRAY",
       items: { type: "STRING" },
@@ -34,7 +63,7 @@ const EXTRACT_SCHEMA = {
     },
     quality_score: {
       type: "INTEGER",
-      description: "Đánh giá chất lượng tư vấn 1-5. 1=lạc đề/khách bỏ, 5=thu lead đầy đủ + đúng flow",
+      description: "Đánh giá chất lượng tư vấn (QA nội bộ) 1-5. 1=lạc đề/khách bỏ, 5=thu lead đầy đủ + đúng flow",
     },
     flow_stage: {
       type: "STRING",
@@ -50,22 +79,36 @@ const EXTRACT_SCHEMA = {
       description: "Nhận xét ngắn về chất lượng tư vấn, điểm mạnh/yếu (bằng tiếng Việt)",
     },
   },
-  required: ["services_discussed", "lead_captured", "quality_score", "flow_stage", "summary", "quality_notes"],
+  required: ["services_discussed", "lead_captured", "quality_score", "lead_quality", "flow_stage", "summary", "quality_notes"],
 };
 
-const SYSTEM = `Bạn là chuyên viên QA của DuHoc24. Nhiệm vụ: đọc một cuộc hội thoại giữa khách và trợ lý tư vấn du học, trích xuất thông tin + đánh giá chất lượng tư vấn theo flow 7 bước (nước → bậc/ngành → giới thiệu dịch vụ → mời tư vấn → thu contact → đặt lịch → chốt).
+const SYSTEM = `Bạn là chuyên viên Sales Ops của DuHoc24. Nhiệm vụ: đọc một cuộc hội thoại giữa khách và trợ lý tư vấn du học, trích xuất đầy đủ thông tin lead + phân loại chất lượng để team sales biết khách nào ưu tiên gọi trước.
 
-Quy tắc:
-- Chỉ trích xuất info khách ĐÃ CUNG CẤP, không suy đoán.
-- lead_captured = true KHI VÀ CHỈ KHI khách đã cho tên + (email HOẶC phone).
-- quality_score (1-5):
-  * 5 = thu đủ lead (tên+email+phone), đúng flow, trợ lý phản hồi phù hợp
-  * 4 = thu được 1 phần contact + đúng flow
-  * 3 = đi đúng flow nhưng chưa thu contact (khách thoát sớm)
-  * 2 = flow lệch, trợ lý trả lời chưa đạt
-  * 1 = lạc đề hoàn toàn / khách thù địch
-- summary + quality_notes bằng tiếng Việt, ngắn gọn (1-2 câu).
-- Field không có thông tin → trả null (string/boolean) hoặc [] (array).`;
+**Quy tắc trích xuất:**
+- Chỉ ghi info khách ĐÃ CUNG CẤP, KHÔNG suy đoán.
+- Field không có → trả null (string/boolean) hoặc [] (array).
+
+**lead_captured** = true KHI VÀ CHỈ KHI khách đã cho tên + (email HOẶC phone).
+
+**wants_consultation** = true nếu khách gật đồng ý đặt lịch tư vấn 1-1. false nếu từ chối. null nếu chưa đến bước này hoặc chưa trả lời.
+
+**lead_quality** — phân loại nhanh để sales triage:
+- **good**: Khách có nhu cầu du học CỤ THỂ (nêu nước + bậc học) VÀ đã để contact (ít nhất tên + 1 kênh liên lạc). Đây là lead nóng, follow trong 24h.
+- **ok**: Khách có quan tâm thật nhưng info chưa đủ (vd. chỉ nói nước, không có contact; hoặc có contact nhưng chưa rõ nhu cầu). Cần nurture.
+- **spam**: Khách lạc đề hoàn toàn, hỏi câu test chatbot, viết linh tinh, hoặc trông giả.
+
+**quality_score (1-5)** — đánh giá QA nội bộ về trợ lý:
+- 5 = flow đúng + thu đủ lead + reply phù hợp
+- 4 = thu được 1 phần contact + đúng flow
+- 3 = đi đúng flow nhưng chưa thu contact
+- 2 = flow lệch, trợ lý reply chưa đạt
+- 1 = lạc đề hoàn toàn / khách thù địch
+
+**availability** — ghi nguyên văn khung giờ khách nêu (vd "tối thứ 7", "sau 7h", "cuối tuần"). Null nếu không nhắc.
+
+**note** — ghi câu hỏi/mối lo cụ thể khách nêu ngoài flow chuẩn. Vd: "lo chi phí", "cần biết về visa F-1 cho sinh viên chuyển ngành". Null nếu không có.
+
+**summary + quality_notes** bằng tiếng Việt, 1-2 câu, ngắn gọn.`;
 
 export async function POST(
   _req: Request,
