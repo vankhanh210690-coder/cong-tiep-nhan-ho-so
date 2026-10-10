@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DeleteConversationButton } from "@/components/admin/delete-conversation-button";
 import { getAdminClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -93,12 +94,13 @@ export default async function AdminConversationsPage() {
               <TableHead>Tin nhắn gần nhất</TableHead>
               <TableHead>Bắt đầu</TableHead>
               <TableHead>Cập nhật</TableHead>
+              <TableHead className="w-12 text-right">Xoá</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {conversations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   Chưa có hội thoại nào. Khách gửi tin trên trang chủ sẽ hiện ở đây.
                 </TableCell>
               </TableRow>
@@ -122,6 +124,12 @@ export default async function AdminConversationsPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatTime(conv.last_message_at)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <DeleteConversationButton
+                    conversationId={conv.id}
+                    previewText={conv.latest_text ?? ""}
+                  />
                 </TableCell>
               </TableRow>
             ))}

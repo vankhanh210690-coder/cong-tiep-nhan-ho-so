@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
  */
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  if (!pathname.startsWith("/admin")) {
+  // Bảo vệ cả trang admin lẫn API admin (POST/DELETE từ UI admin)
+  if (!pathname.startsWith("/admin") && !pathname.startsWith("/api/admin")) {
     return NextResponse.next();
   }
 
@@ -39,5 +40,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
