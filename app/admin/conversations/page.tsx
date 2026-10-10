@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Eye } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import {
@@ -94,7 +96,7 @@ export default async function AdminConversationsPage() {
               <TableHead>Tin nhắn gần nhất</TableHead>
               <TableHead>Bắt đầu</TableHead>
               <TableHead>Cập nhật</TableHead>
-              <TableHead className="w-12 text-right">Xoá</TableHead>
+              <TableHead className="w-24 text-right">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -117,7 +119,12 @@ export default async function AdminConversationsPage() {
                   {conv.message_count}
                 </TableCell>
                 <TableCell className="max-w-md truncate text-muted-foreground">
-                  {conv.latest_text ?? "—"}
+                  <Link
+                    href={`/admin/conversations/${conv.id}`}
+                    className="transition-colors duration-300 hover:text-foreground hover:underline underline-offset-4"
+                  >
+                    {conv.latest_text ?? "—"}
+                  </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatTime(conv.started_at)}
@@ -126,10 +133,19 @@ export default async function AdminConversationsPage() {
                   {formatTime(conv.last_message_at)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <DeleteConversationButton
-                    conversationId={conv.id}
-                    previewText={conv.latest_text ?? ""}
-                  />
+                  <div className="inline-flex items-center gap-1">
+                    <Link
+                      href={`/admin/conversations/${conv.id}`}
+                      aria-label="Xem chi tiết"
+                      className="inline-flex size-7 items-center justify-center rounded-full text-foreground/50 transition-all duration-300 hover:bg-foreground/10 hover:text-foreground"
+                    >
+                      <Eye className="size-3.5 stroke-[1.3]" />
+                    </Link>
+                    <DeleteConversationButton
+                      conversationId={conv.id}
+                      previewText={conv.latest_text ?? ""}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
