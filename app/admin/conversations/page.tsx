@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { Eye, Star } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { DeleteConversationButton } from "@/components/admin/delete-conversation-button";
 import { getAdminClient } from "@/lib/supabase-server";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,6 +24,9 @@ interface ConversationWithLatest {
   last_message_at: string;
   message_count: number;
   latest_text: string | null;
+  lead_captured: boolean | null;
+  quality_score: number | null;
+  lead_name: string | null;
 }
 
 async function fetchConversations(): Promise<ConversationWithLatest[]> {
@@ -39,10 +43,10 @@ async function fetchConversations(): Promise<ConversationWithLatest[]> {
     return [];
   }
 
-  // Fetch latest message snippet cho mỗi conversation
   const ids = convs.map((c) => c.id);
   if (ids.length === 0) return [];
 
+  // Fetch latest message snippet
   const { data: latestRows } = await supabase
     .from("messages")
     .select("conversation_id, text, created_at")
@@ -56,10 +60,28 @@ async function fetchConversations(): Promise<ConversationWithLatest[]> {
     }
   });
 
-  return convs.map((c) => ({
-    ...c,
-    latest_text: latestByConv.get(c.id) ?? null,
-  }));
+  // Fetch insights
+  const { data: insights } = await supabase
+    .from("conversation_insights")
+    .select("conversation_id, lead_captured, quality_score, lead_name")
+    .in("conversation_id", ids);
+
+  const insightsByConv = new Map<
+    string,
+    { lead_captured: boolean | null; quality_score: number | null; lead_name: string | null }
+  >();
+  (insights ?? []).forEach((i) => insightsByConv.set(i.conversation_id, i));
+
+  return convs.map((c) => {
+    const ins = insightsByConv.get(c.id);
+    return {
+      ...c,
+      latest_text: latestByConv.get(c.id) ?? null,
+      lead_captured: ins?.lead_captured ?? null,
+      quality_score: ins?.quality_score ?? null,
+      lead_name: ins?.lead_name ?? null,
+    };
+  });
 }
 
 function formatTime(iso: string): string {
@@ -92,9 +114,10 @@ export default async function AdminConversationsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Kênh</TableHead>
+              <TableHead>Lead</TableHead>
+              <TableHead>Chất lượng</TableHead>
               <TableHead>Số tin</TableHead>
               <TableHead>Tin nhắn gần nhất</TableHead>
-              <TableHead>Bắt đầu</TableHead>
               <TableHead>Cập nhật</TableHead>
               <TableHead className="w-24 text-right">Hành động</TableHead>
             </TableRow>
@@ -102,7 +125,7 @@ export default async function AdminConversationsPage() {
           <TableBody>
             {conversations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   Chưa có hội thoại nào. Khách gửi tin trên trang chủ sẽ hiện ở đây.
                 </TableCell>
               </TableRow>
@@ -115,6 +138,36 @@ export default async function AdminConversationsPage() {
                     Web
                   </span>
                 </TableCell>
+                <TableCell>
+                  {conv.lead_captured === true ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--sage)]/15 px-2 py-0.5 text-[0.65rem] font-medium text-[color:var(--sage)]">
+                      ✓ {conv.lead_name ?? "Có lead"}
+                    </span>
+                  ) : conv.lead_captured === false ? (
+                    <span className="font-mono text-[0.65rem] text-foreground/40">Không</span>
+                  ) : (
+                    <span className="font-mono text-[0.65rem] text-foreground/30">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {conv.quality_score ? (
+                    <div className="inline-flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star
+                          key={n}
+                          className={cn(
+                            "size-3",
+                            n <= conv.quality_score!
+                              ? "fill-[color:var(--umber)] text-[color:var(--umber)]"
+                              : "text-foreground/15",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="font-mono text-[0.65rem] text-foreground/30">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="tabular-nums">
                   {conv.message_count}
                 </TableCell>
@@ -125,9 +178,6 @@ export default async function AdminConversationsPage() {
                   >
                     {conv.latest_text ?? "—"}
                   </Link>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatTime(conv.started_at)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatTime(conv.last_message_at)}

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Mail, Phone, User, Star, Sparkles } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import { DeleteConversationButton } from "@/components/admin/delete-conversation-button";
+import { ExtractInsightsButton } from "@/components/admin/extract-insights-button";
 import { getAdminClient } from "@/lib/supabase-server";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,25 @@ interface MessageRow {
   created_at: string;
 }
 
+interface Insights {
+  lead_name: string | null;
+  lead_email: string | null;
+  lead_phone: string | null;
+  country: string | null;
+  degree: string | null;
+  major: string | null;
+  timeline: string | null;
+  has_ielts: boolean | null;
+  services_discussed: string[] | null;
+  lead_captured: boolean;
+  quality_score: number | null;
+  flow_stage: string | null;
+  summary: string | null;
+  quality_notes: string | null;
+  extracted_at: string;
+  model_used: string | null;
+}
+
 interface ConversationDetail {
   id: string;
   session_id: string;
@@ -25,38 +45,36 @@ interface ConversationDetail {
   message_count: number;
   user_agent: string | null;
   messages: MessageRow[];
+  insights: Insights | null;
 }
 
 async function fetchDetail(id: string): Promise<ConversationDetail | null> {
   const supabase = getAdminClient();
 
-  const { data: conv, error: cErr } = await supabase
+  const { data: conv } = await supabase
     .from("conversations")
-    .select(
-      "id, session_id, started_at, last_message_at, message_count, user_agent",
-    )
+    .select("id, session_id, started_at, last_message_at, message_count, user_agent")
     .eq("id", id)
     .maybeSingle();
 
-  if (cErr || !conv) {
-    console.error("Fetch conversation failed:", cErr);
-    return null;
-  }
+  if (!conv) return null;
 
-  const { data: msgs, error: mErr } = await supabase
+  const { data: msgs } = await supabase
     .from("messages")
     .select("id, role, text, created_at")
     .eq("conversation_id", id)
     .order("created_at", { ascending: true });
 
-  if (mErr) {
-    console.error("Fetch messages failed:", mErr);
-    return null;
-  }
+  const { data: insights } = await supabase
+    .from("conversation_insights")
+    .select("*")
+    .eq("conversation_id", id)
+    .maybeSingle();
 
   return {
     ...conv,
     messages: (msgs ?? []) as MessageRow[],
+    insights: insights as Insights | null,
   };
 }
 
@@ -69,7 +87,6 @@ function formatDateTime(iso: string): string {
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
     });
   } catch {
     return iso;
@@ -86,6 +103,39 @@ function formatMsgTime(iso: string): string {
   } catch {
     return "";
   }
+}
+
+const FLOW_STAGE_LABELS: Record<string, string> = {
+  greeting: "Chào hỏi",
+  country: "Hỏi quốc gia",
+  degree: "Hỏi bậc học",
+  service_intro: "Giới thiệu dịch vụ",
+  offer_consultation: "Mời tư vấn",
+  collecting_contact: "Thu thập contact",
+  closed: "Hoàn tất",
+  off_topic: "Lạc đề",
+};
+
+function QualityStars({ score }: { score: number | null }) {
+  if (!score) return <span className="text-foreground/40">—</span>;
+  return (
+    <div className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          className={cn(
+            "size-3.5",
+            n <= score
+              ? "fill-[color:var(--umber)] text-[color:var(--umber)]"
+              : "text-foreground/15",
+          )}
+        />
+      ))}
+      <span className="ml-1 font-mono text-[0.65rem] text-foreground/50 tabular-nums">
+        {score}/5
+      </span>
+    </div>
+  );
 }
 
 export default async function ConversationDetailPage({
@@ -105,6 +155,8 @@ export default async function ConversationDetailPage({
         60000,
     ),
   );
+
+  const insights = conv.insights;
 
   return (
     <>
@@ -141,9 +193,7 @@ export default async function ConversationDetailPage({
             <dt className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
               Số tin nhắn
             </dt>
-            <dd className="mt-2 font-serif text-2xl tabular-nums">
-              {conv.message_count}
-            </dd>
+            <dd className="mt-2 font-serif text-2xl tabular-nums">{conv.message_count}</dd>
           </div>
           <div>
             <dt className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
@@ -163,21 +213,171 @@ export default async function ConversationDetailPage({
                 : `${Math.floor(durationMin / 60)}h ${durationMin % 60}p`}
             </dd>
           </div>
-          {conv.user_agent && (
-            <div className="sm:col-span-2 lg:col-span-4">
-              <dt className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
-                Thiết bị
-              </dt>
-              <dd className="mt-2 truncate font-mono text-xs text-foreground/60">
-                {conv.user_agent}
-              </dd>
-            </div>
-          )}
         </dl>
       </Card>
 
+      {/* Insights card — Gemini analysis */}
+      <section className="mt-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-serif text-xl font-medium">Thông tin trích xuất</h2>
+            <p className="mt-1 text-xs text-foreground/50">
+              {insights
+                ? `Phân tích lúc ${formatDateTime(insights.extracted_at)} · ${insights.model_used}`
+                : "Chưa phân tích. Bấm nút để Gemini trích xuất lead + đánh giá chất lượng."}
+            </p>
+          </div>
+          <ExtractInsightsButton conversationId={conv.id} />
+        </div>
+
+        {insights ? (
+          <Card className="p-6">
+            {/* Lead captured badge + quality score */}
+            <div className="mb-6 flex flex-wrap items-center gap-4 border-b border-foreground/8 pb-5">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
+                  insights.lead_captured
+                    ? "bg-[color:var(--sage)]/15 text-[color:var(--sage)]"
+                    : "bg-foreground/8 text-foreground/60",
+                )}
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    insights.lead_captured
+                      ? "bg-[color:var(--sage)]"
+                      : "bg-foreground/40",
+                  )}
+                />
+                {insights.lead_captured ? "Đã thu được lead" : "Chưa có lead"}
+              </span>
+              <QualityStars score={insights.quality_score} />
+              {insights.flow_stage && (
+                <span className="rounded-full bg-foreground/8 px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider text-foreground/60">
+                  {FLOW_STAGE_LABELS[insights.flow_stage] ?? insights.flow_stage}
+                </span>
+              )}
+            </div>
+
+            {/* Summary */}
+            {insights.summary && (
+              <div className="mb-6">
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                  Tóm tắt
+                </p>
+                <p className="mt-2 text-sm leading-relaxed">{insights.summary}</p>
+              </div>
+            )}
+
+            {/* Contact + needs grid */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                  Thông tin khách
+                </p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="size-3.5 stroke-[1.3] text-foreground/50" />
+                    <dt className="w-16 text-foreground/60">Họ tên</dt>
+                    <dd>{insights.lead_name ?? <span className="text-foreground/40">—</span>}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="size-3.5 stroke-[1.3] text-foreground/50" />
+                    <dt className="w-16 text-foreground/60">Email</dt>
+                    <dd className="tabular-nums">
+                      {insights.lead_email ?? <span className="text-foreground/40">—</span>}
+                    </dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="size-3.5 stroke-[1.3] text-foreground/50" />
+                    <dt className="w-16 text-foreground/60">SĐT</dt>
+                    <dd className="tabular-nums">
+                      {insights.lead_phone ?? <span className="text-foreground/40">—</span>}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div>
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                  Nhu cầu du học
+                </p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <dt className="w-20 text-foreground/60">Quốc gia</dt>
+                    <dd>{insights.country ?? <span className="text-foreground/40">—</span>}</dd>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <dt className="w-20 text-foreground/60">Bậc học</dt>
+                    <dd>{insights.degree ?? <span className="text-foreground/40">—</span>}</dd>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <dt className="w-20 text-foreground/60">Ngành</dt>
+                    <dd>{insights.major ?? <span className="text-foreground/40">—</span>}</dd>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <dt className="w-20 text-foreground/60">Thời gian</dt>
+                    <dd>{insights.timeline ?? <span className="text-foreground/40">—</span>}</dd>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <dt className="w-20 text-foreground/60">IELTS</dt>
+                    <dd>
+                      {insights.has_ielts === true && "Đã có"}
+                      {insights.has_ielts === false && "Chưa có"}
+                      {insights.has_ielts === null && (
+                        <span className="text-foreground/40">—</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            {/* Services discussed */}
+            {insights.services_discussed && insights.services_discussed.length > 0 && (
+              <div className="mt-6 border-t border-foreground/8 pt-5">
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                  Dịch vụ đã trao đổi
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {insights.services_discussed.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-full border border-foreground/15 bg-background px-2.5 py-1 text-xs text-foreground/80"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* QA notes */}
+            {insights.quality_notes && (
+              <div className="mt-6 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-4">
+                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                  Nhận xét chất lượng
+                </p>
+                <p className="mt-2 text-sm italic text-foreground/70">
+                  {insights.quality_notes}
+                </p>
+              </div>
+            )}
+          </Card>
+        ) : (
+          <Card className="p-8 text-center">
+            <Sparkles className="mx-auto size-6 stroke-[1.3] text-foreground/30" />
+            <p className="mt-3 text-sm text-foreground/60">
+              Chưa có phân tích. Bấm nút trên để Gemini đọc hội thoại và trích
+              xuất lead + đánh giá chất lượng.
+            </p>
+          </Card>
+        )}
+      </section>
+
       {/* Message thread */}
-      <section className="mt-8 space-y-3">
+      <section className="mt-10 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-xl font-medium">Nội dung hội thoại</h2>
           <DeleteConversationButton
@@ -196,10 +396,7 @@ export default async function ConversationDetailPage({
             {conv.messages.map((m) => (
               <div
                 key={m.id}
-                className={cn(
-                  "flex",
-                  m.role === "user" ? "justify-end" : "justify-start",
-                )}
+                className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}
               >
                 <div className="flex max-w-[80%] flex-col gap-1">
                   <div
@@ -218,8 +415,7 @@ export default async function ConversationDetailPage({
                       m.role === "user" ? "text-right" : "text-left",
                     )}
                   >
-                    {m.role === "user" ? "Khách" : "Trợ lý"} ·{" "}
-                    {formatMsgTime(m.created_at)}
+                    {m.role === "user" ? "Khách" : "Trợ lý"} · {formatMsgTime(m.created_at)}
                   </span>
                 </div>
               </div>
