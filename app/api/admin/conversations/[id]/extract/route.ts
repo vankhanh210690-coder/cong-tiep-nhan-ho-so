@@ -93,9 +93,9 @@ const SYSTEM = `Bạn là chuyên viên Sales Ops của DuHoc24. Nhiệm vụ: �
 **wants_consultation** = true nếu khách gật đồng ý đặt lịch tư vấn 1-1. false nếu từ chối. null nếu chưa đến bước này hoặc chưa trả lời.
 
 **lead_quality** — phân loại nhanh để sales triage:
-- **good**: Khách có nhu cầu du học CỤ THỂ (nêu nước + bậc học) VÀ đã để contact (ít nhất tên + 1 kênh liên lạc). Đây là lead nóng, follow trong 24h.
-- **ok**: Khách có quan tâm thật nhưng info chưa đủ (vd. chỉ nói nước, không có contact; hoặc có contact nhưng chưa rõ nhu cầu). Cần nurture.
-- **spam**: Khách lạc đề hoàn toàn, hỏi câu test chatbot, viết linh tinh, hoặc trông giả.
+- **good**: Khách đã CUNG CẤP ĐỦ CONTACT (tên + ít nhất 1 trong email/SĐT) HOẶC đồng ý đặt lịch tư vấn. Đây là lead nóng — team sales gọi lại là qualify tiếp được, không cần biết trước nước/bậc. Follow trong 24h.
+- **ok**: Khách có quan tâm thật (vd nêu nước / bậc học / hỏi về dịch vụ) nhưng CHƯA cho contact. Cần nurture bằng chatbot tiếp hoặc re-engage.
+- **spam**: Khách lạc đề hoàn toàn (hỏi thời tiết, test bot, linh tinh), chatbot phải fallback liên tục, hoặc không có ý định tư vấn thật.
 
 **quality_score (1-5)** — đánh giá QA nội bộ về trợ lý:
 - 5 = flow đúng + thu đủ lead + reply phù hợp
@@ -178,6 +178,12 @@ export async function POST(
     parsed = JSON.parse(rawText);
   } catch {
     return NextResponse.json({ error: "Gemini trả JSON sai format" }, { status: 502 });
+  }
+
+  // Safety net: nếu Gemini đánh "ok" nhưng khách rõ ràng đã cho đủ contact
+  // (lead_captured = true) → override thành "good". Tránh miss lead do prompt interpret sai.
+  if (parsed.lead_captured === true && parsed.lead_quality === "ok") {
+    parsed.lead_quality = "good";
   }
 
   // Upsert vào bảng insights
