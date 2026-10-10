@@ -1,35 +1,35 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-export const LogoMark = ({ className }: { className?: string }) => {
+/**
+ * Horizontal lockup — compass mark + wordmark "DuHoc/24".
+ * Default height responsive: 28px mobile → 32px desktop.
+ * Override với className (vd. "h-20 md:h-28" cho footer).
+ */
+export const Logo = ({ className }: { className?: string; uniColor?: boolean }) => {
   return (
-    <svg
-      className={cn("size-7", className)}
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Outer ring hairline */}
-      <circle cx="24" cy="24" r="23" stroke="currentColor" strokeOpacity="0.18" />
-      {/* Inner compass star — editorial compass motif */}
-      <path
-        d="M24 7 L26.4 21.6 L41 24 L26.4 26.4 L24 41 L21.6 26.4 L7 24 L21.6 21.6 Z"
-        fill="currentColor"
-      />
-      <circle cx="24" cy="24" r="2.4" fill="var(--background)" />
-    </svg>
+    <Image
+      src="/images/logo-duhoc24.png"
+      alt="DuHoc24 — Cổng tiếp nhận hồ sơ du học"
+      width={2075}
+      height={515}
+      priority
+      className={cn("h-7 w-auto sm:h-8", className)}
+    />
   );
 };
 
-export const Logo = ({ className }: { className?: string; uniColor?: boolean }) => {
+/**
+ * Compass mark only — dùng khi cần icon vuông (favicon, badge, loading).
+ */
+export const LogoMark = ({ className }: { className?: string; uniColor?: boolean }) => {
   return (
-    <span className={cn("flex items-center gap-2.5 text-foreground", className)}>
-      <LogoMark />
-      <span className="flex items-baseline gap-0.5">
-        <span className="font-serif text-xl font-medium tracking-tight">DuHoc</span>
-        <span className="font-mono text-[0.7rem] font-light text-[color:var(--umber)]">
-          /24
-        </span>
-      </span>
-    </span>
+    <Image
+      src="/images/logo-compass.png"
+      alt="DuHoc24 compass mark"
+      width={515}
+      height={479}
+      className={cn("size-7 w-auto", className)}
+    />
   );
 };

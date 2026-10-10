@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 export function SiteFooter() {
   return (
@@ -10,10 +11,8 @@ export function SiteFooter() {
             <p className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/50">
               Est. 2024 · Việt Nam
             </p>
-            <h2 className="mt-6 font-serif text-6xl font-light leading-[0.9] tracking-tight text-foreground md:text-7xl lg:text-[8rem]">
-              DuHoc<span className="text-[color:var(--umber)]">/24</span>
-            </h2>
-            <p className="mt-6 max-w-md text-sm leading-relaxed text-foreground/60">
+            <Logo className="mt-8 h-16 sm:h-20 md:h-24 lg:h-32" />
+            <p className="mt-8 max-w-md text-sm leading-relaxed text-foreground/60">
               Tư vấn hồ sơ du học, rõ ràng từ báo giá đến xét duyệt. Đồng hành
               cùng học viên từ bước chọn trường đến khi hoàn tất hồ sơ.
             </p>
