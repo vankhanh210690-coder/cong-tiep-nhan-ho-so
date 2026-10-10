@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DeleteConversationButton } from "@/components/admin/delete-conversation-button";
+import { ExtractAllButton } from "@/components/admin/extract-all-button";
 import { getAdminClient } from "@/lib/supabase-server";
 import { cn } from "@/lib/utils";
 
@@ -112,12 +113,16 @@ function formatTime(iso: string): string {
 
 export default async function AdminConversationsPage() {
   const conversations = await fetchConversations();
+  const pendingCount = conversations.filter(
+    (c) => c.lead_quality === null && c.message_count > 1,
+  ).length;
 
   return (
     <>
       <AdminPageHeader
         title="Hội thoại"
         description={`${conversations.length} hội thoại gần nhất của khách với chatbot DuHoc24.`}
+        action={<ExtractAllButton pendingCount={pendingCount} />}
       />
 
       <Card>
