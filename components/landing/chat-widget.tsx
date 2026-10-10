@@ -122,6 +122,10 @@ export function ChatWidget() {
         {/* Messages */}
         <div
           ref={scrollRef}
+          role="log"
+          aria-live="polite"
+          aria-atomic="false"
+          aria-label="Lịch sử hội thoại với trợ lý"
           className="flex-1 space-y-3 overflow-y-auto px-5 py-5"
         >
           {messages.map((m, i) => (

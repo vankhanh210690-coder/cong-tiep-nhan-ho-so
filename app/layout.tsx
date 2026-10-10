@@ -1,25 +1,11 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Geist, JetBrains_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 
 const geist = Geist({
   variable: "--font-sans",
   subsets: ["latin", "vietnamese"],
   weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-serif",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
   display: "swap",
 });
 
@@ -31,10 +17,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="vi"
-      className={`${geist.variable} ${playfair.variable} ${jetbrains.variable} h-full antialiased`}
-    >
+    <html lang="vi" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
       </body>

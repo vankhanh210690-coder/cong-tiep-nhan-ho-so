@@ -21,15 +21,14 @@ export function Hero() {
         {/* Editorial Split */}
         <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-7">
-            <h1 className="anim-rise delay-100 font-serif text-5xl font-light leading-[0.95] tracking-tight text-foreground md:text-7xl lg:text-[5.5rem]">
-              Hồ sơ du học,
+            <h1 className="anim-rise delay-100 font-serif text-5xl font-light uppercase leading-[0.95] tracking-[-0.01em] text-foreground md:text-7xl lg:text-[5rem]">
+              Hồ sơ du học
               <br />
               <span className="font-medium text-[color:var(--umber)]">
                 tường minh
-              </span>{" "}
-              từng
+              </span>
               <br />
-              bước.
+              từng bước
             </h1>
 
             <p className="anim-rise delay-300 mt-8 max-w-xl text-balance text-base leading-relaxed text-foreground/70 md:text-lg">

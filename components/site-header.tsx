@@ -7,10 +7,10 @@ import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  { name: "Trang chủ", href: "/" },
-  { name: "Điểm chuẩn", href: "#" },
-  { name: "Cổng hồ sơ", href: "/portal" },
-  { name: "Admin", href: "/admin" },
+  { name: "Trang chủ", href: "/", soon: false },
+  { name: "Điểm chuẩn", href: "#", soon: true },
+  { name: "Cổng hồ sơ", href: "/portal", soon: false },
+  { name: "Admin", href: "/admin", soon: false },
 ];
 
 export function SiteHeader() {
@@ -53,7 +53,22 @@ export function SiteHeader() {
 
           <ul className="hidden items-center gap-0.5 text-sm lg:flex">
             {menuItems.map((item) => {
-              const active = item.href !== "#" && pathname === item.href;
+              const active = !item.soon && pathname === item.href;
+              if (item.soon) {
+                return (
+                  <li key={item.name}>
+                    <span
+                      aria-disabled="true"
+                      className="flex cursor-not-allowed items-center gap-1.5 rounded-full px-4 py-2 text-foreground/40"
+                    >
+                      {item.name}
+                      <span className="rounded-full bg-foreground/8 px-1.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider text-foreground/60">
+                        Sắp ra mắt
+                      </span>
+                    </span>
+                  </li>
+                );
+              }
               return (
                 <li key={item.name}>
                   <Link
@@ -132,13 +147,25 @@ export function SiteHeader() {
               )}
               style={{ transitionDelay: menuOpen ? `${150 + i * 70}ms` : "0ms" }}
             >
-              <Link
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="font-serif text-4xl font-medium text-foreground"
-              >
-                {item.name}
-              </Link>
+              {item.soon ? (
+                <span
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed items-center gap-2 font-serif text-4xl font-medium text-foreground/40"
+                >
+                  {item.name}
+                  <span className="rounded-full bg-foreground/8 px-2 py-0.5 font-sans font-mono text-[0.65rem] uppercase tracking-wider text-foreground/60">
+                    Sắp ra mắt
+                  </span>
+                </span>
+              ) : (
+                <Link
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="font-serif text-4xl font-medium text-foreground"
+                >
+                  {item.name}
+                </Link>
+              )}
             </li>
           ))}
         </ul>

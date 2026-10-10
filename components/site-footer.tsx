@@ -54,12 +54,15 @@ export function SiteFooter() {
                     </Link>
                   </li>
                   <li>
-                    <Link
-                      href="#"
-                      className="text-foreground/80 transition-colors duration-500 hover:text-[color:var(--umber)]"
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex cursor-not-allowed items-center gap-1.5 text-foreground/50"
                     >
                       Điểm chuẩn các trường
-                    </Link>
+                      <span className="rounded-full bg-foreground/8 px-1.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider text-foreground/60">
+                        Sắp ra mắt
+                      </span>
+                    </span>
                   </li>
                   <li>
                     <Link
