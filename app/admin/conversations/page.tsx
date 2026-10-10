@@ -74,10 +74,6 @@ function formatTime(iso: string): string {
   }
 }
 
-function shortId(id: string): string {
-  return id.slice(0, 8);
-}
-
 export default async function AdminConversationsPage() {
   const conversations = await fetchConversations();
 
@@ -92,7 +88,7 @@ export default async function AdminConversationsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Session</TableHead>
+              <TableHead>Kênh</TableHead>
               <TableHead>Số tin</TableHead>
               <TableHead>Tin nhắn gần nhất</TableHead>
               <TableHead>Bắt đầu</TableHead>
@@ -109,8 +105,11 @@ export default async function AdminConversationsPage() {
             )}
             {conversations.map((conv) => (
               <TableRow key={conv.id}>
-                <TableCell className="font-mono text-xs">
-                  {shortId(conv.session_id)}
+                <TableCell>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--sage)]/15 px-2.5 py-0.5 text-xs font-medium text-[color:var(--sage)]">
+                    <span className="size-1.5 rounded-full bg-[color:var(--sage)]" />
+                    Web
+                  </span>
                 </TableCell>
                 <TableCell className="tabular-nums">
                   {conv.message_count}

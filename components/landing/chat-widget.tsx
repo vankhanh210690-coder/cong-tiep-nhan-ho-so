@@ -9,12 +9,21 @@ interface Message {
   text: string;
 }
 
-const quickQuestions = [
+// Pool câu hỏi — khi khách click 1 câu, nó rời khỏi 4 ô hiện, câu kế tiếp pop lên.
+// Cycle khi hết pool.
+const QUESTION_POOL = [
   "Dịch vụ gồm những gì?",
   "Mất bao lâu để có kết quả?",
   "Cần chuẩn bị giấy tờ gì?",
   "Chi phí dịch vụ là bao nhiêu?",
+  "Chưa có IELTS được không?",
+  "Hồ sơ có được bảo mật không?",
+  "Sau khi điền form thì sao?",
+  "Làm sao biết đủ điều kiện vào trường?",
+  "Em học lớp 12 đăng ký được không?",
+  "Có hỗ trợ du học Nhật không?",
 ];
+const QUICK_VISIBLE_COUNT = 4;
 
 const GREETING: Message = {
   from: "bot",
@@ -27,7 +36,18 @@ export function ChatWidget() {
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [historyLoaded, setHistoryLoaded] = React.useState(false);
+  const [questionQueue, setQuestionQueue] =
+    React.useState<string[]>(QUESTION_POOL);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const visibleQuestions = questionQueue.slice(0, QUICK_VISIBLE_COUNT);
+
+  function rotateQuestion(clicked: string) {
+    setQuestionQueue((prev) => {
+      const rest = prev.filter((q) => q !== clicked);
+      return [...rest, clicked]; // clicked chạy xuống cuối hàng đợi
+    });
+  }
 
   // Fetch history lần đầu khi widget mount — không truyền history từ client nữa,
   // server tự lấy từ DB qua cookie du_sid (HttpOnly, không đọc được từ JS).
@@ -180,10 +200,13 @@ export function ChatWidget() {
         {/* Quick replies + input */}
         <div className="border-t border-foreground/8 bg-background/60 px-4 py-3">
           <div className="flex flex-wrap gap-1.5 pb-2.5">
-            {quickQuestions.map((q) => (
+            {visibleQuestions.map((q) => (
               <button
                 key={q}
-                onClick={() => sendMessage(q)}
+                onClick={() => {
+                  rotateQuestion(q);
+                  sendMessage(q);
+                }}
                 disabled={loading}
                 className="rounded-full border border-foreground/10 bg-background/60 px-3 py-1 text-[0.7rem] text-foreground/70 transition-all duration-500 hover:border-[color:var(--umber)]/40 hover:text-[color:var(--umber)] disabled:opacity-40"
               >
