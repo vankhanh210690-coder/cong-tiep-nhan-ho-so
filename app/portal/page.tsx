@@ -213,8 +213,8 @@ export default async function PortalPage() {
           </section>
         )}
 
-        {/* AI gợi ý học bổng — chỉ hiện khi khách đạt ≥ 1 trường */}
-        {hasStudentData && matches.some((m) => m.passed === true) && (
+        {/* AI gợi ý học bổng — hiện khi đã có GPA + IELTS (dù đạt hay không, AI sẽ trả lời đúng tình huống) */}
+        {hasStudentData && (
           <section className="mt-12 space-y-6">
             <div>
               <p className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/50">
