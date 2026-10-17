@@ -131,26 +131,37 @@ Hãy tra cứu học bổng cho các trường trên và gợi ý những học 
   let finalText = "";
 
   for (let loop = 0; loop < MAX_LOOPS; loop++) {
-    const res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        tools: [TOOL],
-        toolConfig: { functionCallingConfig: { mode: "AUTO" } },
-        generationConfig: { temperature: 0.3, maxOutputTokens: 800 },
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
+    // Retry khi gặp 429/503 (overloaded) — exponential backoff
+    let res: Response | null = null;
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      res = await fetch(`${ENDPOINT}?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          tools: [TOOL],
+          toolConfig: { functionCallingConfig: { mode: "AUTO" } },
+          generationConfig: { temperature: 0.3, maxOutputTokens: 800 },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      lastStatus = res.status;
+      if (res.ok) break;
+      // Retry chỉ với 429 / 500 / 502 / 503 / 504
+      if (![429, 500, 502, 503, 504].includes(res.status)) break;
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    }
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini suggest error:", res.status, errText.slice(0, 300));
-      return NextResponse.json(
-        { error: `Gemini lỗi ${res.status}` },
-        { status: 502 },
-      );
+    if (!res || !res.ok) {
+      const errText = res ? await res.text().catch(() => "") : "";
+      console.error("Gemini suggest error:", lastStatus, errText.slice(0, 300));
+      const userMsg =
+        lastStatus === 503 || lastStatus === 429
+          ? "AI đang bận do nhiều yêu cầu. Bạn thử lại sau 10-20 giây nhé."
+          : "AI tạm thời không phản hồi, bạn thử lại sau nhé.";
+      return NextResponse.json({ error: userMsg }, { status: 502 });
     }
 
     const data = await res.json();
