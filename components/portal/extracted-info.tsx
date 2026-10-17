@@ -14,6 +14,17 @@ interface IdentityData {
   dob: string | null;
 }
 
+/**
+ * Che số giấy tờ, chỉ lộ 3 ký tự cuối.
+ * '001090044141' → '•••••••••141'
+ */
+function maskIdNumber(num: string | null): string {
+  if (!num) return "—";
+  const clean = num.trim();
+  if (clean.length <= 3) return clean;
+  return "•".repeat(clean.length - 3) + clean.slice(-3);
+}
+
 export function ExtractedInfo({
   fullName,
   dateOfBirth,
@@ -118,7 +129,7 @@ export function ExtractedInfo({
           <dl className="mt-4 grid gap-6 sm:grid-cols-3">
             <Field label="Họ tên trên giấy tờ" value={identity.name ?? "—"} />
             <Field label="Ngày sinh" value={identity.dob ?? "—"} tabular />
-            <Field label="Số giấy tờ" value={identity.number ?? "—"} tabular />
+            <Field label="Số giấy tờ" value={maskIdNumber(identity.number)} tabular />
           </dl>
         </section>
       </div>

@@ -61,6 +61,13 @@ async function fetchData() {
   }));
 }
 
+function maskIdNumber(num: string | null): string {
+  if (!num) return "";
+  const clean = num.trim();
+  if (clean.length <= 3) return clean;
+  return "•".repeat(clean.length - 3) + clean.slice(-3);
+}
+
 function formatTime(iso: string): string {
   try {
     return new Date(iso).toLocaleString("vi-VN", {
@@ -128,7 +135,7 @@ export default async function AdminProfilesPage() {
                     {displayDob ?? <span className="text-foreground/40">—</span>}
                   </TableCell>
                   <TableCell className="tabular-nums text-xs text-foreground/70">
-                    {p.identity_number ?? <span className="text-foreground/40">—</span>}
+                    {p.identity_number ? maskIdNumber(p.identity_number) : <span className="text-foreground/40">—</span>}
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {p.gpa != null ? Number(p.gpa).toFixed(1) : <span className="text-foreground/40">—</span>}
