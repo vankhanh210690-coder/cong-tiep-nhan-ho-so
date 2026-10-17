@@ -1,21 +1,32 @@
+interface IeltsBreakdown {
+  overall: number | null;
+  listening: number | null;
+  reading: number | null;
+  writing: number | null;
+  speaking: number | null;
+  testDate: string | null;
+  name: string | null;
+}
+
+interface IdentityData {
+  number: string | null;
+  name: string | null;
+  dob: string | null;
+}
+
 export function ExtractedInfo({
   fullName,
   dateOfBirth,
   gpa,
   ielts,
+  identity,
 }: {
   fullName: string;
   dateOfBirth: string;
-  gpa: number;
-  ielts: number;
+  gpa: number | null;
+  ielts: IeltsBreakdown;
+  identity: IdentityData;
 }) {
-  const fields = [
-    { label: "Họ tên", value: fullName },
-    { label: "Ngày sinh", value: dateOfBirth, tabular: true },
-    { label: "Điểm GPA", value: gpa.toFixed(1), tabular: true, big: true },
-    { label: "Điểm IELTS", value: ielts.toFixed(1), tabular: true, big: true },
-  ];
-
   return (
     <div className="rounded-[2rem] bg-foreground/5 p-2 ring-1 ring-foreground/8">
       <div className="rounded-[calc(2rem-0.375rem)] bg-background p-6 md:p-8">
@@ -29,27 +40,119 @@ export function ExtractedInfo({
             </h3>
           </div>
           <span className="rounded-full bg-[color:var(--sage)]/15 px-3 py-1 text-[0.65rem] font-medium text-[color:var(--sage)]">
-            Tự động trích xuất
+            Trích xuất tự động bằng Gemini
           </span>
         </div>
 
-        <dl className="mt-6 grid gap-6 sm:grid-cols-2 md:grid-cols-4">
-          {fields.map((field) => (
-            <div key={field.label}>
-              <dt className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-foreground/50">
-                {field.label}
-              </dt>
-              <dd
-                className={`mt-3 font-serif font-light tracking-tight text-foreground ${
-                  field.big ? "text-4xl" : "text-xl"
-                } ${field.tabular ? "tabular-nums" : ""}`}
-              >
-                {field.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        {/* Thông tin cá nhân + GPA */}
+        <section className="mt-6">
+          <p className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-foreground/50">
+            Thông tin cá nhân · Bảng điểm
+          </p>
+          <dl className="mt-4 grid gap-6 sm:grid-cols-2 md:grid-cols-4">
+            <Field label="Họ tên" value={fullName} />
+            <Field label="Ngày sinh" value={dateOfBirth} tabular />
+            <Field
+              label="Điểm GPA"
+              value={gpa != null ? gpa.toFixed(1) : "—"}
+              tabular
+              big
+            />
+            <Field label="(Trích từ)" value="Bảng điểm" dim />
+          </dl>
+        </section>
+
+        {/* IELTS breakdown */}
+        <section className="mt-8 border-t border-foreground/8 pt-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <p className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-foreground/50">
+              Chứng chỉ IELTS
+            </p>
+            {ielts.testDate && (
+              <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                Ngày thi · {ielts.testDate}
+              </p>
+            )}
+          </div>
+          <dl className="mt-4 grid gap-6 sm:grid-cols-3 md:grid-cols-5">
+            <Field
+              label="Overall"
+              value={ielts.overall != null ? ielts.overall.toFixed(1) : "—"}
+              tabular
+              big
+              accent
+            />
+            <Field
+              label="Nghe"
+              value={ielts.listening != null ? ielts.listening.toFixed(1) : "—"}
+              tabular
+            />
+            <Field
+              label="Đọc"
+              value={ielts.reading != null ? ielts.reading.toFixed(1) : "—"}
+              tabular
+            />
+            <Field
+              label="Viết"
+              value={ielts.writing != null ? ielts.writing.toFixed(1) : "—"}
+              tabular
+            />
+            <Field
+              label="Nói"
+              value={ielts.speaking != null ? ielts.speaking.toFixed(1) : "—"}
+              tabular
+            />
+          </dl>
+          {ielts.name && ielts.name !== fullName && (
+            <p className="mt-4 font-mono text-[0.65rem] text-foreground/50">
+              Tên trên chứng chỉ: <span className="text-foreground/70">{ielts.name}</span>
+            </p>
+          )}
+        </section>
+
+        {/* Identity doc */}
+        <section className="mt-8 border-t border-foreground/8 pt-6">
+          <p className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-foreground/50">
+            CMND / CCCD / Hộ chiếu
+          </p>
+          <dl className="mt-4 grid gap-6 sm:grid-cols-3">
+            <Field label="Họ tên trên giấy tờ" value={identity.name ?? "—"} />
+            <Field label="Ngày sinh" value={identity.dob ?? "—"} tabular />
+            <Field label="Số giấy tờ" value={identity.number ?? "—"} tabular />
+          </dl>
+        </section>
       </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  tabular,
+  big,
+  accent,
+  dim,
+}: {
+  label: string;
+  value: string;
+  tabular?: boolean;
+  big?: boolean;
+  accent?: boolean;
+  dim?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-foreground/50">
+        {label}
+      </dt>
+      <dd
+        className={`mt-3 font-serif font-light tracking-tight ${big ? "text-4xl" : "text-xl"} ${
+          tabular ? "tabular-nums" : ""
+        } ${dim ? "text-foreground/40" : accent ? "text-[color:var(--umber)]" : "text-foreground"}`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

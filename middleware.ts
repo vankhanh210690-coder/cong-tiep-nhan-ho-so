@@ -1,12 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const PORTAL_COOKIE = "portal_sid";
+const PORTAL_COOKIE_TTL = 60 * 60 * 24 * 90; // 90 ngày
+
 /**
- * Bảo vệ /admin bằng Basic Auth qua ADMIN_PASSWORD env.
- * Username cố định: "admin". Mật khẩu: biến ADMIN_PASSWORD trong .env + Vercel.
+ * Middleware xử lý 2 việc:
+ * 1. /admin/* + /api/admin/* → Basic Auth qua ADMIN_PASSWORD env (nếu set)
+ * 2. /portal + /api/portal/* → ensure cookie portal_sid tồn tại
+ *    (Server Component không set cookie được trong Next 16 → phải làm ở middleware)
  */
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  // Bảo vệ cả trang admin lẫn API admin (POST/DELETE từ UI admin)
+
+  // --- Portal: ensure cookie portal_sid ---
+  const isPortal = pathname.startsWith("/portal") || pathname.startsWith("/api/portal");
+  if (isPortal) {
+    const existing = req.cookies.get(PORTAL_COOKIE)?.value;
+    if (!existing) {
+      const newSid = crypto.randomUUID();
+      const response = NextResponse.next();
+      response.cookies.set({
+        name: PORTAL_COOKIE,
+        value: newSid,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: PORTAL_COOKIE_TTL,
+        path: "/",
+      });
+      return response;
+    }
+    return NextResponse.next();
+  }
+
+  // --- Admin basic auth ---
   if (!pathname.startsWith("/admin") && !pathname.startsWith("/api/admin")) {
     return NextResponse.next();
   }
@@ -14,7 +41,6 @@ export function middleware(req: NextRequest) {
   const username = process.env.ADMIN_USERNAME ?? "admin";
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    // Nếu chưa cấu hình → cho qua (để không chặn dev)
     return NextResponse.next();
   }
 
@@ -40,5 +66,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/portal", "/api/portal/:path*"],
 };
