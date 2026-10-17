@@ -14,10 +14,9 @@ const COOKIE_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 ngày
 const HISTORY_LIMIT = 10;
 const MAX_MESSAGE_LEN = 2000;
 
-// Rate limit: 20 message/phút/session (in-memory, reset khi serverless cold start)
-const RATE_WINDOW_MS = 60_000;
+// Rate limit: 20 message/60s/session, persist qua Supabase (kháng cold start)
+const RATE_WINDOW_SECONDS = 60;
 const RATE_MAX = 20;
-const rateMap = new Map<string, { count: number; resetAt: number }>();
 
 const DEGREE_LEVELS = ["THPT", "Đại học", "Thạc sĩ"];
 
@@ -114,17 +113,24 @@ function hashIp(ip: string | null): string | null {
   return crypto.createHash("sha256").update(ip + salt).digest("hex").slice(0, 32);
 }
 
-function checkRateLimit(sessionId: string): { ok: boolean; retryAfter?: number } {
-  const now = Date.now();
-  const entry = rateMap.get(sessionId);
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(sessionId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+async function checkRateLimit(
+  supabase: ReturnType<typeof getAdminClient>,
+  sessionId: string,
+): Promise<{ ok: boolean; retryAfter?: number }> {
+  const { data, error } = await supabase.rpc("bump_rate_limit", {
+    p_session: sessionId,
+    p_window_seconds: RATE_WINDOW_SECONDS,
+    p_max: RATE_MAX,
+  });
+  if (error) {
+    // Fail open: nếu RPC lỗi vẫn cho qua, log để điều tra
+    console.error("Rate limit RPC error:", error);
     return { ok: true };
   }
-  if (entry.count >= RATE_MAX) {
-    return { ok: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.allowed === false) {
+    return { ok: false, retryAfter: row.retry_after ?? 60 };
   }
-  entry.count++;
   return { ok: true };
 }
 
@@ -163,8 +169,10 @@ export async function POST(req: Request) {
     sessionId = newSessionId();
   }
 
-  // 3. Rate limit
-  const rate = checkRateLimit(sessionId);
+  const supabase = getAdminClient();
+
+  // 3. Rate limit (persist qua DB, kháng cold start)
+  const rate = await checkRateLimit(supabase, sessionId);
   if (!rate.ok) {
     return NextResponse.json(
       { error: `Bạn gửi quá nhanh, thử lại sau ${rate.retryAfter}s` },
@@ -173,7 +181,6 @@ export async function POST(req: Request) {
   }
 
   // 4. Supabase: get or create conversation
-  const supabase = getAdminClient();
   let conversationId: string;
 
   const { data: existing } = await supabase

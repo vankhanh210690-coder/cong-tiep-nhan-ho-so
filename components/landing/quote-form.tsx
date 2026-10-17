@@ -27,12 +27,45 @@ export function QuoteForm() {
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   const chosenPackage = servicePackages.find((p) => p.id === selectedPackage)!;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
+    if (loading) return;
+
+    if (!country) {
+      setErrorMsg("Vui lòng chọn quốc gia muốn du học.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          country,
+          degree: degreeLevel,
+          package: selectedPackage,
+          email,
+          phone,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Có lỗi xảy ra, bạn thử lại nhé.");
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setErrorMsg("Không kết nối được, kiểm tra mạng và thử lại.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -242,9 +275,12 @@ export function QuoteForm() {
                 {/* Submit — Button-in-Button */}
                 <button
                   type="submit"
-                  className="group relative inline-flex w-full items-center justify-between gap-2 rounded-full bg-foreground py-2 pl-6 pr-2 text-sm font-medium text-background shadow-xl shadow-foreground/15 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/90 active:scale-[0.98] sm:w-auto"
+                  disabled={loading || submitted}
+                  className="group relative inline-flex w-full items-center justify-between gap-2 rounded-full bg-foreground py-2 pl-6 pr-2 text-sm font-medium text-background shadow-xl shadow-foreground/15 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed sm:w-auto"
                 >
-                  <span>Nhận báo giá</span>
+                  <span>
+                    {loading ? "Đang gửi..." : submitted ? "Đã gửi báo giá" : "Nhận báo giá"}
+                  </span>
                   <span className="flex size-9 items-center justify-center rounded-full bg-background/15 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:-translate-y-px group-hover:bg-background/25">
                     <svg
                       viewBox="0 0 24 24"
@@ -261,6 +297,13 @@ export function QuoteForm() {
                     </svg>
                   </span>
                 </button>
+
+                {/* Error */}
+                {errorMsg && (
+                  <p role="alert" className="mt-3 text-sm text-[color:var(--destructive)]">
+                    {errorMsg}
+                  </p>
+                )}
 
                 {/* Result */}
                 {submitted && (
