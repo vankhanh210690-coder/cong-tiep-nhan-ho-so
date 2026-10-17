@@ -83,23 +83,36 @@ export default async function PortalPage() {
     };
   });
 
-  // Hiện match khi đã có GPA + IELTS overall
-  const canMatch =
+  // Luôn render list schools từ DB; nếu đủ GPA+IELTS → chấm pass/fail + lý do.
+  const hasStudentData =
     profile?.gpa != null && profile?.ielts_overall != null;
-  const matches = canMatch
-    ? schools.map((s) => ({
-        school: {
-          id: s.id,
-          name: s.name,
-          country: s.country,
-          minGpa: Number(s.min_gpa),
-          minIelts: Number(s.min_ielts),
-        },
-        passed:
-          Number(profile!.gpa) >= Number(s.min_gpa) &&
-          Number(profile!.ielts_overall) >= Number(s.min_ielts),
-      }))
-    : [];
+  const studentGpa = profile?.gpa != null ? Number(profile.gpa) : null;
+  const studentIelts =
+    profile?.ielts_overall != null ? Number(profile.ielts_overall) : null;
+
+  const matches = schools.map((s) => {
+    const minGpa = Number(s.min_gpa);
+    const minIelts = Number(s.min_ielts);
+    const base = {
+      school: {
+        id: s.id,
+        name: s.name,
+        country: s.country,
+        minGpa,
+        minIelts,
+      },
+    };
+    if (!hasStudentData) {
+      return { ...base, passed: null as const };
+    }
+    const gpaOk = studentGpa! >= minGpa;
+    const ieltsOk = studentIelts! >= minIelts;
+    const passed = gpaOk && ieltsOk;
+    const reasons: string[] = [];
+    if (!gpaOk) reasons.push(`GPA ${studentGpa!.toFixed(1)} < ${minGpa.toFixed(1)}`);
+    if (!ieltsOk) reasons.push(`IELTS ${studentIelts!.toFixed(1)} < ${minIelts.toFixed(1)}`);
+    return { ...base, passed, reasons };
+  });
 
   const displayName =
     profile?.full_name ?? profile?.identity_name ?? profile?.ielts_name;
@@ -151,7 +164,7 @@ export default async function PortalPage() {
           </div>
         </section>
 
-        {/* Kết quả */}
+        {/* Kết quả xử lý — chỉ hiện khi đã có data trích xuất */}
         {hasAnyData && (
           <section className="mt-24 space-y-8">
             <div>
@@ -181,7 +194,21 @@ export default async function PortalPage() {
                 dob: profile?.identity_dob ?? null,
               }}
             />
-            {canMatch && matches.length > 0 && <SchoolMatch matches={matches} />}
+          </section>
+        )}
+
+        {/* Đối chiếu điểm chuẩn — LUÔN hiện (list từ DB), chấm pass/fail khi đủ data */}
+        {matches.length > 0 && (
+          <section className="mt-16 space-y-6">
+            <div>
+              <p className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/50">
+                Bước 03
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-light tracking-tight md:text-4xl">
+                Điểm chuẩn các trường
+              </h2>
+            </div>
+            <SchoolMatch matches={matches} hasStudentData={hasStudentData} />
           </section>
         )}
       </main>
