@@ -1,6 +1,7 @@
 import { PortalDocuments } from "@/components/portal/portal-documents";
 import { ExtractedInfo } from "@/components/portal/extracted-info";
 import { SchoolMatch } from "@/components/portal/school-match";
+import { AIScholarshipSuggest } from "@/components/portal/ai-scholarship-suggest";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { getPortalSession } from "@/lib/portal-session";
@@ -209,6 +210,23 @@ export default async function PortalPage() {
               </h2>
             </div>
             <SchoolMatch matches={matches} hasStudentData={hasStudentData} />
+          </section>
+        )}
+
+        {/* AI gợi ý học bổng — chỉ hiện khi khách đạt ≥ 1 trường */}
+        {hasStudentData && matches.some((m) => m.passed === true) && (
+          <section className="mt-12 space-y-6">
+            <div>
+              <p className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/50">
+                Bước 04
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-light tracking-tight md:text-4xl">
+                Học bổng phù hợp
+              </h2>
+            </div>
+            <AIScholarshipSuggest
+              passedCount={matches.filter((m) => m.passed === true).length}
+            />
           </section>
         )}
       </main>
