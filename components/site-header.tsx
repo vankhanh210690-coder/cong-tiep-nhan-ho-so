@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const menuItems = [
   { name: "Trang chủ", href: "/", soon: false },
-  { name: "Điểm chuẩn", href: "#", soon: true },
+  { name: "Điểm chuẩn", href: "/diem-chuan", soon: false },
   { name: "Cổng hồ sơ", href: "/portal", soon: false },
   { name: "Admin", href: "/admin", soon: false },
 ];

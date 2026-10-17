@@ -22,6 +22,7 @@ export const countries = [
   "Canada",
   "Hàn Quốc",
   "Nhật Bản",
+  "New Zealand",
 ] as const;
 
 export const schools: School[] = [
