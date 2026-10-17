@@ -2,8 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, FileText, IdCard, Medal } from "lucide-react";
 import { DocStatusBadge } from "@/components/status-badge";
 import type { DocStatus } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -12,14 +11,31 @@ type DocType = "transcript" | "ielts" | "identity";
 
 interface DocItem {
   type: DocType;
-  icon: LucideIcon;
-  title: string;
-  accept: string;
-  mime: string;
   fileName: string | null;
   status: DocStatus;
-  reason?: string;
+  reason?: string | null;
 }
+
+const DOC_META = {
+  transcript: {
+    icon: FileText,
+    title: "Bảng điểm (PDF)",
+    accept: "Chấp nhận PDF, tối đa 5 MB",
+    mime: "application/pdf",
+  },
+  ielts: {
+    icon: Medal,
+    title: "Ảnh chứng chỉ IELTS",
+    accept: "Chấp nhận JPG, PNG, tối đa 5 MB",
+    mime: "image/jpeg,image/png",
+  },
+  identity: {
+    icon: IdCard,
+    title: "Ảnh CMND/CCCD hoặc hộ chiếu",
+    accept: "Chấp nhận JPG, PNG, tối đa 5 MB",
+    mime: "image/jpeg,image/png",
+  },
+} as const;
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -78,6 +94,8 @@ export function PortalDocuments({ items }: { items: DocItem[] }) {
         const uploading = uploadingType === item.type;
         const err = errorMsg[item.type];
         const hasFile = item.fileName !== null;
+        const meta = DOC_META[item.type];
+        const Icon = meta.icon;
 
         return (
           <article key={item.type} className="group">
@@ -94,7 +112,7 @@ export function PortalDocuments({ items }: { items: DocItem[] }) {
                     inputRefs.current[item.type] = el;
                   }}
                   type="file"
-                  accept={item.mime}
+                  accept={meta.mime}
                   disabled={uploading}
                   className="sr-only"
                   onChange={(e) => {
@@ -112,7 +130,7 @@ export function PortalDocuments({ items }: { items: DocItem[] }) {
                   </>
                 ) : hasFile ? (
                   <>
-                    <item.icon className="size-7 stroke-[1.1] text-foreground/60" />
+                    <Icon className="size-7 stroke-[1.1] text-foreground/60" />
                     <span className="max-w-full truncate px-4 font-mono text-[0.65rem] text-foreground/60">
                       {item.fileName}
                     </span>
@@ -134,7 +152,7 @@ export function PortalDocuments({ items }: { items: DocItem[] }) {
             <div className="mt-5 px-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-serif text-xl font-medium text-foreground">
-                  {item.title}
+                  {meta.title}
                 </h3>
                 {hasFile && <DocStatusBadge status={item.status} />}
               </div>
@@ -147,7 +165,7 @@ export function PortalDocuments({ items }: { items: DocItem[] }) {
                     </span>
                   </>
                 ) : (
-                  item.accept
+                  meta.accept
                 )}
               </p>
               {err && (

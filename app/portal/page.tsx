@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { FileText, IdCard, Medal } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PortalDocuments } from "@/components/portal/portal-documents";
@@ -28,27 +27,6 @@ interface SchoolRow {
   min_ielts: number;
 }
 
-const DOC_META = {
-  transcript: {
-    icon: FileText,
-    title: "Bảng điểm (PDF)",
-    accept: "Chấp nhận PDF, tối đa 5 MB",
-    mime: "application/pdf",
-  },
-  ielts: {
-    icon: Medal,
-    title: "Ảnh chứng chỉ IELTS",
-    accept: "Chấp nhận JPG, PNG, tối đa 5 MB",
-    mime: "image/jpeg,image/png",
-  },
-  identity: {
-    icon: IdCard,
-    title: "Ảnh CMND/CCCD hoặc hộ chiếu",
-    accept: "Chấp nhận JPG, PNG, tối đa 5 MB",
-    mime: "image/jpeg,image/png",
-  },
-} as const;
-
 export default async function PortalPage() {
   const user = await getCurrentUser();
   if (!user) {
@@ -70,18 +48,15 @@ export default async function PortalPage() {
   const docsByType = new Map<string, DocRow>();
   docs.forEach((d) => docsByType.set(d.doc_type, d));
 
+  // Chỉ pass data thuần (string/null) sang Client Component.
+  // Icon + title + accept + mime được client tự map từ `type`.
   const docItems = (["transcript", "ielts", "identity"] as const).map((type) => {
     const existing = docsByType.get(type);
-    const meta = DOC_META[type];
     return {
       type,
-      icon: meta.icon,
-      title: meta.title,
-      accept: meta.accept,
-      mime: meta.mime,
       fileName: existing?.file_name ?? null,
       status: existing?.status ?? ("chua_nop" as DocStatus),
-      reason: existing?.reason ?? undefined,
+      reason: existing?.reason ?? null,
     };
   });
 
