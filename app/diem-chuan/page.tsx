@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Award } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { getAdminClient } from "@/lib/supabase-server";
@@ -9,7 +10,7 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: "Điểm chuẩn các trường — DuHoc24",
   description:
-    "Danh sách điểm học tập và IELTS tối thiểu để nộp hồ sơ vào các trường đối tác của DuHoc24.",
+    "Danh sách điểm học tập và IELTS tối thiểu + học bổng theo từng trường đối tác của DuHoc24.",
 };
 
 interface SchoolRow {
@@ -20,25 +21,41 @@ interface SchoolRow {
   min_ielts: number;
 }
 
-async function fetchSchools(): Promise<SchoolRow[]> {
-  const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("schools")
-    .select("*")
-    .order("country", { ascending: true })
-    .order("name", { ascending: true });
+interface ScholarshipRow {
+  id: string;
+  name: string;
+  school_id: string;
+  min_gpa: number | null;
+  min_ielts: number | null;
+  benefit_text: string;
+  benefit_percent: number | null;
+}
 
-  if (error) {
-    console.error("Fetch schools failed:", error);
-    return [];
-  }
-  return (data ?? []) as SchoolRow[];
+async function fetchAll() {
+  const supabase = getAdminClient();
+  const [schoolsRes, schRes] = await Promise.all([
+    supabase.from("schools").select("*").order("country").order("name"),
+    supabase
+      .from("scholarships")
+      .select("*")
+      .order("benefit_percent", { ascending: false, nullsFirst: false }),
+  ]);
+  return {
+    schools: (schoolsRes.data ?? []) as SchoolRow[],
+    scholarships: (schRes.data ?? []) as ScholarshipRow[],
+  };
+}
+
+function conditionText(s: ScholarshipRow): string {
+  if (s.min_gpa != null) return `GPA ≥ ${s.min_gpa.toFixed(1)}`;
+  if (s.min_ielts != null) return `IELTS ≥ ${s.min_ielts.toFixed(1)}`;
+  return "Không yêu cầu";
 }
 
 export default async function DiemChuanPage() {
-  const schools = await fetchSchools();
+  const { schools, scholarships } = await fetchAll();
 
-  // Group theo country
+  // Group schools theo country
   const byCountry = new Map<string, SchoolRow[]>();
   schools.forEach((s) => {
     const list = byCountry.get(s.country) ?? [];
@@ -46,6 +63,14 @@ export default async function DiemChuanPage() {
     byCountry.set(s.country, list);
   });
   const countries = Array.from(byCountry.keys()).sort();
+
+  // Scholarships grouped by school
+  const schBySchool = new Map<string, ScholarshipRow[]>();
+  scholarships.forEach((s) => {
+    const list = schBySchool.get(s.school_id) ?? [];
+    list.push(s);
+    schBySchool.set(s.school_id, list);
+  });
 
   return (
     <>
@@ -64,23 +89,22 @@ export default async function DiemChuanPage() {
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-foreground/70 md:text-lg">
-            Điểm học tập (GPA thang 10) và IELTS tối thiểu để nộp hồ sơ. Đối
-            chiếu với hồ sơ của bạn trong cổng {" "}
+            Điểm học tập (GPA thang 10) và IELTS tối thiểu + {scholarships.length}{" "}
+            học bổng đang mở. Đối chiếu với hồ sơ của bạn trong{" "}
             <a
               href="/portal"
               className="underline underline-offset-4 decoration-foreground/30 transition-colors duration-300 hover:text-[color:var(--umber)] hover:decoration-[color:var(--umber)]"
             >
-              hồ sơ học viên
-            </a>{" "}
-            để biết trường nào đủ điều kiện.
+              cổng hồ sơ
+            </a>
+            .
           </p>
         </div>
 
-        {/* Schools grouped by country */}
         <div className="mt-14 space-y-14">
           {countries.length === 0 ? (
             <p className="text-center text-sm text-foreground/50">
-              Chưa có trường nào trong hệ thống.
+              Chưa có trường nào.
             </p>
           ) : (
             countries.map((country) => {
@@ -101,39 +125,75 @@ export default async function DiemChuanPage() {
                     </span>
                   </header>
                   <ul className="space-y-3">
-                    {list.map((s) => (
-                      <li
-                        key={s.id}
-                        className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-5 transition-colors duration-300 hover:border-foreground/20 hover:bg-foreground/[0.04]"
-                      >
-                        <div>
-                          <p className="font-serif text-lg font-medium text-foreground">
-                            {s.name}
-                          </p>
-                          <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/40">
-                            Mã · {s.id}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <div className="text-right">
-                            <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
-                              GPA tối thiểu
-                            </p>
-                            <p className="mt-1 font-serif text-xl tabular-nums font-medium text-foreground">
-                              {Number(s.min_gpa).toFixed(1)}
-                            </p>
+                    {list.map((s) => {
+                      const schList = schBySchool.get(s.id) ?? [];
+                      return (
+                        <li
+                          key={s.id}
+                          className="rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-5 transition-colors duration-300 hover:border-foreground/20"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                              <p className="font-serif text-lg font-medium text-foreground">
+                                {s.name}
+                              </p>
+                              <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/40">
+                                Mã · {s.id}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <div className="text-right">
+                                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                                  GPA tối thiểu
+                                </p>
+                                <p className="mt-1 font-serif text-xl tabular-nums font-medium text-foreground">
+                                  {Number(s.min_gpa).toFixed(1)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
+                                  IELTS tối thiểu
+                                </p>
+                                <p className="mt-1 font-serif text-xl tabular-nums font-medium text-foreground">
+                                  {Number(s.min_ielts).toFixed(1)}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-mono text-[0.6rem] uppercase tracking-[0.25em] text-foreground/50">
-                              IELTS tối thiểu
-                            </p>
-                            <p className="mt-1 font-serif text-xl tabular-nums font-medium text-foreground">
-                              {Number(s.min_ielts).toFixed(1)}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
+
+                          {/* Scholarships (nếu có) */}
+                          {schList.length > 0 && (
+                            <div className="mt-4 border-t border-foreground/8 pt-4">
+                              <p className="mb-3 flex items-center gap-2 font-mono text-[0.6rem] uppercase tracking-[0.3em] text-[color:var(--umber)]">
+                                <Award className="size-3.5 stroke-[1.6]" />
+                                Học bổng đang mở · {schList.length}
+                              </p>
+                              <ul className="space-y-2">
+                                {schList.map((sch) => (
+                                  <li
+                                    key={sch.id}
+                                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--umber)]/20 bg-[color:var(--umber)]/5 px-4 py-3"
+                                  >
+                                    <div>
+                                      <p className="font-serif text-base font-medium text-foreground">
+                                        {sch.name}
+                                      </p>
+                                      <p className="mt-0.5 font-mono text-[0.65rem] uppercase tracking-wider text-foreground/60">
+                                        Điều kiện · {conditionText(sch)}
+                                      </p>
+                                    </div>
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--umber)] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-white shadow-sm">
+                                      <Award className="size-3 stroke-[2]" />
+                                      {sch.benefit_text}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               );
@@ -147,10 +207,10 @@ export default async function DiemChuanPage() {
             Lưu ý
           </p>
           <p className="mt-3">
-            Điểm chuẩn trên là điều kiện <strong>tối thiểu</strong> để nộp hồ
-            sơ, không phải điểm đảm bảo trúng tuyển. Mỗi năm trường có thể cập
-            nhật ngưỡng, hãy xác nhận lại với tư vấn viên DuHoc24 khi chuẩn bị
-            nộp hồ sơ chính thức.
+            Điểm chuẩn và học bổng trên là điều kiện <strong>tối thiểu</strong>{" "}
+            để xét, không phải đảm bảo trúng tuyển / nhận học bổng. Mỗi năm
+            trường có thể cập nhật, hãy xác nhận lại với tư vấn viên DuHoc24
+            trước khi nộp hồ sơ.
           </p>
         </div>
       </main>

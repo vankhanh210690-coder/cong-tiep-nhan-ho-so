@@ -20,7 +20,57 @@ const RATE_MAX = 20;
 
 const DEGREE_LEVELS = ["THPT", "Đại học", "Thạc sĩ"];
 
-function buildSystemPrompt(): string {
+interface SchoolData {
+  name: string;
+  country: string;
+  min_gpa: number;
+  min_ielts: number;
+}
+
+interface ScholarshipData {
+  name: string;
+  school_name: string;
+  min_gpa: number | null;
+  min_ielts: number | null;
+  benefit_text: string;
+}
+
+async function fetchDynamicData(): Promise<{
+  schools: SchoolData[];
+  scholarships: ScholarshipData[];
+}> {
+  try {
+    const supabase = getAdminClient();
+    const [schoolsRes, schRes] = await Promise.all([
+      supabase.from("schools").select("name, country, min_gpa, min_ielts").order("country"),
+      supabase
+        .from("scholarships")
+        .select("name, min_gpa, min_ielts, benefit_text, schools(name)")
+        .order("benefit_percent", { ascending: false, nullsFirst: false }),
+    ]);
+    return {
+      schools: (schoolsRes.data ?? []) as SchoolData[],
+      scholarships: (schRes.data ?? []).map((s: {
+        name: string;
+        min_gpa: number | null;
+        min_ielts: number | null;
+        benefit_text: string;
+        schools: { name: string } | { name: string }[] | null;
+      }) => ({
+        name: s.name,
+        school_name: Array.isArray(s.schools) ? s.schools[0]?.name ?? "" : s.schools?.name ?? "",
+        min_gpa: s.min_gpa,
+        min_ielts: s.min_ielts,
+        benefit_text: s.benefit_text,
+      })),
+    };
+  } catch (err) {
+    console.error("Fetch dynamic data for chatbot failed:", err);
+    return { schools: [], scholarships: [] };
+  }
+}
+
+async function buildSystemPrompt(): Promise<string> {
   const countryList = countries.join(", ");
   const packageList = servicePackages
     .map(
@@ -29,6 +79,27 @@ function buildSystemPrompt(): string {
     )
     .join("\n");
   const degreeList = DEGREE_LEVELS.join(", ");
+
+  const { schools, scholarships } = await fetchDynamicData();
+
+  const schoolList = schools.length
+    ? schools
+        .map((s) => `- ${s.name} (${s.country}): GPA ≥ ${s.min_gpa}, IELTS ≥ ${s.min_ielts}`)
+        .join("\n")
+    : "(Chưa có dữ liệu)";
+
+  const scholarshipList = scholarships.length
+    ? scholarships
+        .map((s) => {
+          const cond = s.min_gpa != null
+            ? `GPA ≥ ${s.min_gpa}`
+            : s.min_ielts != null
+              ? `IELTS ≥ ${s.min_ielts}`
+              : "không yêu cầu điểm";
+          return `- ${s.name} (${s.school_name}): điều kiện ${cond}, hỗ trợ ${s.benefit_text}`;
+        })
+        .join("\n")
+    : "(Chưa có học bổng)";
 
   return `# PERSONA
 Bạn là **Trợ lý AI Tư vấn Du học DuHoc24** — ảo, thân thiện, nhiệt tình, hỗ trợ học sinh và phụ huynh tìm hiểu về du học.
@@ -54,6 +125,12 @@ ${packageList}
 
 **Dịch vụ cung cấp:**
 Tư vấn chọn trường & ngành học · Hỗ trợ hồ sơ apply · Tư vấn xin visa · Tìm học bổng · Đào tạo kỹ năng trước du học (ngôn ngữ, phỏng vấn).
+
+**Trường đối tác (${schools.length}) + điểm chuẩn:**
+${schoolList}
+
+**Học bổng đang mở (${scholarships.length}):**
+${scholarshipList}
 
 **Liên hệ:**
 - Trụ sở: Số 1 Hai Bà Trưng, Hà Nội
@@ -245,7 +322,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
+        systemInstruction: { parts: [{ text: await buildSystemPrompt() }] },
         contents,
         generationConfig: {
           temperature: 0.5,
