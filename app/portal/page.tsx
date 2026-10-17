@@ -104,7 +104,7 @@ export default async function PortalPage() {
       },
     };
     if (!hasStudentData) {
-      return { ...base, passed: null as const };
+      return { ...base, passed: null as boolean | null };
     }
     const gpaOk = studentGpa! >= minGpa;
     const ieltsOk = studentIelts! >= minIelts;
