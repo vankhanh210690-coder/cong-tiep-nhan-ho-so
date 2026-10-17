@@ -121,29 +121,31 @@ export function SchoolMatch({
 /* ===== ĐẠT — xanh emerald vibrant ===== */
 function PassRow({ school }: { school: School }) {
   return (
-    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-5 shadow-md shadow-emerald-500/20">
+    <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-5 shadow-md shadow-emerald-500/20">
       <span className="absolute inset-y-0 left-0 w-1.5 bg-emerald-600" />
       <div className="flex items-center gap-4 pl-2">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/40">
           <Check className="size-6 stroke-[3]" />
         </span>
         <div>
-          <div className="flex items-center gap-2">
-            <p className="font-serif text-xl font-medium text-emerald-950">
-              {school.name}
-            </p>
-            <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 font-mono text-[0.65rem] font-bold uppercase tracking-widest text-white shadow-sm">
-              ĐẠT
-            </span>
-          </div>
+          <p className="font-serif text-xl font-medium text-emerald-950">
+            {school.name}
+          </p>
           <p className="mt-0.5 font-mono text-[0.65rem] uppercase tracking-[0.25em] text-emerald-700/80">
             {school.country}
           </p>
         </div>
       </div>
-      <div className="text-right font-mono text-xs tabular-nums text-emerald-900/80">
-        <p>GPA ≥ {school.minGpa.toFixed(1)}</p>
-        <p>IELTS ≥ {school.minIelts.toFixed(1)}</p>
+      <div className="flex items-center gap-4">
+        {/* Pill lớn ĐẠT */}
+        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-base font-bold uppercase tracking-wide text-white shadow-md shadow-emerald-600/40">
+          <Check className="size-5 stroke-[3]" />
+          Đạt
+        </span>
+        <div className="text-right font-mono text-xs tabular-nums text-emerald-900/80">
+          <p>GPA ≥ {school.minGpa.toFixed(1)}</p>
+          <p>IELTS ≥ {school.minIelts.toFixed(1)}</p>
+        </div>
       </div>
     </div>
   );
@@ -152,21 +154,16 @@ function PassRow({ school }: { school: School }) {
 /* ===== CHƯA ĐẠT — đỏ red vibrant ===== */
 function FailRow({ school, reasons }: { school: School; reasons: string[] }) {
   return (
-    <div className="relative flex items-start justify-between gap-4 overflow-hidden rounded-2xl border-2 border-red-500 bg-red-50 p-5 shadow-md shadow-red-500/15">
+    <div className="relative flex flex-wrap items-start justify-between gap-4 overflow-hidden rounded-2xl border-2 border-red-500 bg-red-50 p-5 shadow-md shadow-red-500/15">
       <span className="absolute inset-y-0 left-0 w-1.5 bg-red-600" />
       <div className="flex items-start gap-4 pl-2">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-red-600 text-white shadow-lg shadow-red-600/40">
           <X className="size-6 stroke-[3]" />
         </span>
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-serif text-xl font-medium text-red-950">
-              {school.name}
-            </p>
-            <span className="rounded-full bg-red-600 px-2.5 py-0.5 font-mono text-[0.65rem] font-bold uppercase tracking-widest text-white shadow-sm">
-              Chưa đạt
-            </span>
-          </div>
+          <p className="font-serif text-xl font-medium text-red-950">
+            {school.name}
+          </p>
           <p className="mt-0.5 font-mono text-[0.65rem] uppercase tracking-[0.25em] text-red-700/80">
             {school.country}
           </p>
@@ -178,9 +175,16 @@ function FailRow({ school, reasons }: { school: School; reasons: string[] }) {
           )}
         </div>
       </div>
-      <div className="text-right font-mono text-xs tabular-nums text-red-900/80">
-        <p>GPA ≥ {school.minGpa.toFixed(1)}</p>
-        <p>IELTS ≥ {school.minIelts.toFixed(1)}</p>
+      <div className="flex items-center gap-4">
+        {/* Pill lớn KHÔNG ĐẠT */}
+        <span className="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-base font-bold uppercase tracking-wide text-white shadow-md shadow-red-600/40">
+          <X className="size-5 stroke-[3]" />
+          Không đạt
+        </span>
+        <div className="text-right font-mono text-xs tabular-nums text-red-900/80">
+          <p>GPA ≥ {school.minGpa.toFixed(1)}</p>
+          <p>IELTS ≥ {school.minIelts.toFixed(1)}</p>
+        </div>
       </div>
     </div>
   );
