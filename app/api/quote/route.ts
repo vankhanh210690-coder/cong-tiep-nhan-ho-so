@@ -1,9 +1,45 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "node:crypto";
 import { getAdminClient } from "@/lib/supabase-server";
 import { countries, servicePackages } from "@/lib/mock-data";
 
 export const runtime = "nodejs";
+
+const QUOTE_WEBHOOK_URL =
+  process.env.QUOTE_WEBHOOK_URL ??
+  "https://hook.eu2.make.com/vbpnjcvdgu3513depignev2qfvxftx66";
+
+async function sendQuoteWebhook(payload: {
+  id: string;
+  customer_name: string;
+  email: string;
+  package_id: string;
+  package_name: string;
+  quote_amount: number;
+}) {
+  try {
+    const res = await fetch(QUOTE_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: payload.id,
+        customer_name: payload.customer_name,
+        email: payload.email,
+        package: payload.package_name,
+        package_id: payload.package_id,
+        quote_amount: payload.quote_amount,
+        quote_amount_vnd: payload.quote_amount.toLocaleString("vi-VN") + "₫",
+        created_at: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) {
+      console.error("Quote webhook non-2xx:", res.status, await res.text().catch(() => ""));
+    }
+  } catch (err) {
+    console.error("Quote webhook failed:", err);
+  }
+}
 
 const DEGREE_LEVELS = ["thpt", "dai_hoc", "thac_si"] as const;
 const COUNTRY_SET = new Set<string>(countries);
@@ -85,6 +121,17 @@ export async function POST(req: Request) {
     console.error("Insert quote failed:", error);
     return NextResponse.json({ error: "DB lỗi, thử lại nhé" }, { status: 500 });
   }
+
+  after(() =>
+    sendQuoteWebhook({
+      id: data.id,
+      customer_name: customerName,
+      email,
+      package_id: chosen.id,
+      package_name: chosen.name,
+      quote_amount: data.quote_amount,
+    }),
+  );
 
   return NextResponse.json({
     ok: true,
