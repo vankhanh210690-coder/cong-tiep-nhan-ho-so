@@ -19,6 +19,30 @@ function formatVnd(value: number) {
   return value.toLocaleString("vi-VN") + "₫";
 }
 
+const EMAIL_TYPO_DOMAINS: Record<string, string> = {
+  "gmail.co": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmail.cm": "gmail.com",
+  "gmail.vn": "gmail.com",
+  "gnail.com": "gmail.com",
+  "gmai.com": "gmail.com",
+  "gmial.com": "gmail.com",
+  "yahoo.co": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+  "yahoo.cm": "yahoo.com",
+  "hotmail.co": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "outlook.co": "outlook.com",
+  "outllook.com": "outlook.com",
+};
+
+function suggestEmailFix(email: string): string | null {
+  const [local, domain] = email.toLowerCase().split("@");
+  if (!domain) return null;
+  const fix = EMAIL_TYPO_DOMAINS[domain];
+  return fix ? `${local}@${fix}` : null;
+}
+
 export function QuoteForm() {
   const [customerName, setCustomerName] = React.useState<string>("");
   const [country, setCountry] = React.useState<string>("");
@@ -43,6 +67,25 @@ export function QuoteForm() {
     }
     if (!country) {
       setErrorMsg("Vui lòng chọn quốc gia muốn du học.");
+      return;
+    }
+    const emailTrim = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(emailTrim)) {
+      setErrorMsg("Email không hợp lệ, bạn kiểm tra lại.");
+      return;
+    }
+    const suggested = suggestEmailFix(emailTrim);
+    if (suggested) {
+      setErrorMsg(
+        `Email có vẻ gõ nhầm. Có phải bạn muốn dùng ${suggested}?`,
+      );
+      return;
+    }
+    const phoneClean = phone.replace(/\s/g, "");
+    if (!/^0\d{8,10}$/.test(phoneClean)) {
+      setErrorMsg(
+        "Số điện thoại không hợp lệ (phải bắt đầu bằng 0, 9-11 số).",
+      );
       return;
     }
 

@@ -45,6 +45,28 @@ const DEGREE_LEVELS = ["thpt", "dai_hoc", "thac_si"] as const;
 const COUNTRY_SET = new Set<string>(countries);
 const PACKAGE_SET = new Set<string>(servicePackages.map((p) => p.id));
 
+const EMAIL_TYPO_DOMAINS: Record<string, string> = {
+  "gmail.co": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmail.cm": "gmail.com",
+  "gmail.vn": "gmail.com",
+  "gnail.com": "gmail.com",
+  "gmai.com": "gmail.com",
+  "gmial.com": "gmail.com",
+  "yahoo.co": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+  "yahoo.cm": "yahoo.com",
+  "hotmail.co": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "outlook.co": "outlook.com",
+  "outllook.com": "outlook.com",
+};
+
+function detectEmailTypo(email: string): string | null {
+  const domain = email.split("@")[1]?.toLowerCase();
+  return domain ? (EMAIL_TYPO_DOMAINS[domain] ?? null) : null;
+}
+
 function hashIp(ip: string | null): string | null {
   if (!ip) return null;
   const salt = process.env.SUPABASE_SECRET_KEY ?? "";
@@ -86,11 +108,24 @@ export async function POST(req: Request) {
   if (!pkg || !PACKAGE_SET.has(pkg)) {
     return NextResponse.json({ error: "Gói dịch vụ không hợp lệ" }, { status: 400 });
   }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) {
     return NextResponse.json({ error: "Email không hợp lệ" }, { status: 400 });
   }
-  if (!phone || phone.length < 8 || phone.length > 20) {
-    return NextResponse.json({ error: "SĐT không hợp lệ" }, { status: 400 });
+  const emailSuggestion = detectEmailTypo(email);
+  if (emailSuggestion) {
+    return NextResponse.json(
+      {
+        error: `Email có vẻ gõ nhầm. Có phải bạn muốn dùng @${emailSuggestion} không?`,
+        suggestion: email.split("@")[0] + "@" + emailSuggestion,
+      },
+      { status: 400 },
+    );
+  }
+  if (!phone || !/^0\d{8,10}$/.test(phone.replace(/\s/g, ""))) {
+    return NextResponse.json(
+      { error: "Số điện thoại không hợp lệ (phải bắt đầu bằng 0, 9-11 số)" },
+      { status: 400 },
+    );
   }
 
   const chosen = servicePackages.find((p) => p.id === pkg);
