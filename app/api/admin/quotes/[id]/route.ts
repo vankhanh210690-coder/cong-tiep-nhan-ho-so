@@ -103,3 +103,23 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: "id không hợp lệ" }, { status: 400 });
+  }
+
+  const supabase = getAdminClient();
+  const { error } = await supabase.from("quote_requests").delete().eq("id", id);
+
+  if (error) {
+    console.error("Delete quote failed:", error);
+    return NextResponse.json({ error: "DB lỗi" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
