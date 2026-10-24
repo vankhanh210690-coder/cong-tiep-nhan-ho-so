@@ -17,6 +17,7 @@ function hashIp(ip: string | null): string | null {
 
 export async function POST(req: Request) {
   let body: {
+    customer_name?: string;
     country?: string;
     degree?: string;
     package?: string;
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Body không hợp lệ" }, { status: 400 });
   }
 
+  const customerName = body.customer_name?.trim();
   const country = body.country?.trim();
   const degree = body.degree?.trim();
   const pkg = body.package?.trim();
@@ -36,6 +38,9 @@ export async function POST(req: Request) {
   const phone = body.phone?.trim();
 
   // Validate basics
+  if (!customerName || customerName.length < 2 || customerName.length > 120) {
+    return NextResponse.json({ error: "Họ tên không hợp lệ" }, { status: 400 });
+  }
   if (!country || !COUNTRY_SET.has(country)) {
     return NextResponse.json({ error: "Quốc gia không hợp lệ" }, { status: 400 });
   }
@@ -64,6 +69,7 @@ export async function POST(req: Request) {
   const { data, error } = await supabase
     .from("quote_requests")
     .insert({
+      customer_name: customerName,
       country,
       degree_level: degree,
       package: pkg,

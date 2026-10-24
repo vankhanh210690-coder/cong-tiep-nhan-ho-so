@@ -20,6 +20,7 @@ function formatVnd(value: number) {
 }
 
 export function QuoteForm() {
+  const [customerName, setCustomerName] = React.useState<string>("");
   const [country, setCountry] = React.useState<string>("");
   const [degreeLevel, setDegreeLevel] = React.useState<string>("dai_hoc");
   const [selectedPackage, setSelectedPackage] =
@@ -36,6 +37,10 @@ export function QuoteForm() {
     e.preventDefault();
     if (loading) return;
 
+    if (!customerName.trim()) {
+      setErrorMsg("Vui lòng nhập họ tên của bạn.");
+      return;
+    }
     if (!country) {
       setErrorMsg("Vui lòng chọn quốc gia muốn du học.");
       return;
@@ -48,6 +53,7 @@ export function QuoteForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          customer_name: customerName.trim(),
           country,
           degree: degreeLevel,
           package: selectedPackage,
@@ -232,6 +238,27 @@ export function QuoteForm() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Họ tên */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="customer_name"
+                    className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/60"
+                  >
+                    Họ và tên
+                  </label>
+                  <input
+                    id="customer_name"
+                    type="text"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    placeholder="Nguyễn Văn A"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-foreground/15 bg-background px-4 text-sm outline-none transition-all duration-500 placeholder:text-foreground/40 focus:border-[color:var(--umber)] focus:ring-4 focus:ring-[color:var(--umber)]/10"
+                  />
                 </div>
 
                 {/* Contact */}

@@ -18,6 +18,7 @@ export const revalidate = 0;
 
 interface QuoteRow {
   id: string;
+  customer_name: string | null;
   country: string;
   degree_level: string;
   package: string;
@@ -86,6 +87,7 @@ export default async function AdminRequestsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Họ tên</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>SĐT</TableHead>
               <TableHead>Quốc gia</TableHead>
@@ -99,14 +101,17 @@ export default async function AdminRequestsPage() {
           <TableBody>
             {quotes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   Chưa có yêu cầu nào. Khách điền form báo giá trên trang chủ sẽ hiện ở đây.
                 </TableCell>
               </TableRow>
             )}
             {quotes.map((q) => (
               <TableRow key={q.id}>
-                <TableCell className="font-medium tabular-nums">{q.email}</TableCell>
+                <TableCell className="font-medium">
+                  {q.customer_name ?? <span className="text-foreground/40">—</span>}
+                </TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">{q.email}</TableCell>
                 <TableCell className="tabular-nums text-muted-foreground">{q.phone}</TableCell>
                 <TableCell>{q.country}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
